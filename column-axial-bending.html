@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RetroCrete FC — CFRP Column Strengthening (Axial + Bending)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/style.css">
+<style>
+  .section-diagram.compact{max-width:78%; margin-left:auto; margin-right:auto; padding:10px;}
+  .pm-table th, .pm-table td{border:1px solid var(--paper-line); padding:6px 8px; text-align:center;}
+  .pm-table thead th{background:#e8e6df; font-weight:600; font-size:11px; color:var(--ink-soft); text-transform:uppercase; letter-spacing:0.03em;}
+  .pm-table thead tr:first-child th{border-bottom:none;}
+  .pm-table thead tr:last-child th{border-top:none; font-size:10.5px; text-transform:none;}
+  .pm-table tbody td:first-child{font-weight:600; font-family:'Space Grotesk',sans-serif; background:#e8e6df;}
+  .pm-table col.strengthened{background:rgba(26,122,99,0.05);}
+  .pm-table{width:100%; border-collapse:collapse; margin-top:6px; font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--ink);}
+</style>
+</head>
+<body>
+<script src="/assets/nav.js"></script>
+<div class="wrap">
+
+  <header class="title-block">
+    <div style="display:flex; align-items:flex-start; gap:16px;">
+      <div class="brand-mark"><img src="/assets/retrocrete-logo.jpg" alt="RetroCrete FC logo"></div>
+      <div>
+        <h1>CFRP column strengthening — axial + bending</h1>
+        <p>Builds the simplified φP<sub>n</sub>–φM<sub>n</sub> interaction diagram (Points A, B, C per ACI 440.2R Appendix D) for a rectangular tied column, before and after CFRP confinement, for any bar layout and either bending axis.</p>
+      </div>
+    </div>
+    <div class="meta">
+      METHOD <span>ACI 440.2R APPENDIX D</span><br>
+      MEMBER <span>RECTANGULAR TIED COLUMN</span><br>
+      MODE <span>FORWARD CHECK — PLIES SPECIFIED</span>
+    </div>
+  </header>
+
+  <div class="grid-3col">
+    <!-- COLUMN 1 -->
+    <div class="card">
+      <h2>Column details &amp; material properties</h2>
+      <p class="sub">Existing rectangular tied cross-section.</p>
+
+      <div class="section-diagram compact">
+        <svg id="sectionSvg" viewBox="0 0 320 345"></svg>
+        <div class="diag-caption" id="diagCaption">Cross-section, drawn to scale.</div>
+        <div class="diag-legend">
+          <span><span class="swatch" style="background:#8a5a12;"></span>Longitudinal steel</span>
+          <span><span class="swatch" style="background:#c9102e;"></span>CFRP jacket</span>
+        </div>
+      </div>
+
+      <div class="row"><label>Longer dimension, H</label><input type="number" id="H" value="610" min="50" oninput="runCalc()" onblur="clampInput('H')"><span class="unit">mm</span></div>
+      <div class="row"><label>Shorter dimension, B</label><input type="number" id="B" value="610" min="50" oninput="runCalc()" onblur="clampInput('B')"><span class="unit">mm</span></div>
+      <div class="row"><label>Radius of edges of section</label><input type="number" id="rc" value="25" min="0" oninput="runCalc()" onblur="clampInput('rc')"><span class="unit">mm</span></div>
+      <div class="row"><label>Clear cover</label><input type="number" id="cover" value="40" min="0" oninput="runCalc()" onblur="clampInput('cover')"><span class="unit">mm</span></div>
+      <div class="row"><label>Tie diameter</label><input type="number" id="tie" value="10" min="0" oninput="runCalc()" onblur="clampInput('tie')"><span class="unit">mm</span></div>
+      <div class="row"><label>Longitudinal bar diameter</label><input type="number" id="db" value="32" min="1" oninput="runCalc()" onblur="clampInput('db')"><span class="unit">mm</span></div>
+
+      <div class="section-title">Material properties</div>
+      <div class="row"><label>Concrete strength, f'<sub>c</sub></label><input type="number" id="fc" value="45" min="1" oninput="runCalc()" onblur="clampInput('fc')"><span class="unit">MPa</span></div>
+      <div class="row"><label>Longitudinal bar yield strength, f<sub>y</sub></label><input type="number" id="fy" value="414" min="1" oninput="runCalc()" onblur="clampInput('fy')"><span class="unit">MPa</span></div>
+      <div class="row"><label>Steel modulus, E<sub>s</sub></label><input type="number" id="Es" value="200000" min="1" oninput="runCalc()" onblur="clampInput('Es')"><span class="unit">MPa</span></div>
+
+      <div class="section-title">Bending direction &amp; rebar layout <span class="note-inline">— any layout, either axis</span></div>
+      <div class="row" style="grid-template-columns:1fr;"><label>Bending Depth Direction</label></div>
+      <select id="orientation" onchange="runCalc()" style="margin-bottom:8px;">
+        <option value="H" selected>H (Height is depth)</option>
+        <option value="B">B (Width is depth)</option>
+      </select>
+      <div class="row"><label>Corner bars (fixed)</label><input type="text" value="4" readonly><span class="unit">pcs</span></div>
+      <div class="row"><label>Intermediate bars along x (per face), n<sub>x</sub></label><input type="number" id="nx" value="2" step="1" min="0" oninput="runCalc()" onblur="clampInput('nx')"><span class="unit">pcs</span></div>
+      <div class="row"><label>Intermediate bars along y (per side), n<sub>y</sub></label><input type="number" id="ny" value="2" step="1" min="0" oninput="runCalc()" onblur="clampInput('ny')"><span class="unit">pcs</span></div>
+    </div>
+
+    <!-- COLUMN 2 -->
+    <div class="card">
+      <h2>CFRP system &amp; demand loads</h2>
+      <p class="sub">Manufacturer-reported (uncorrected) jacket properties.</p>
+
+      <div class="row"><label>Classification</label></div>
+      <input type="text" id="classification" value="RETROCRETE" oninput="runCalc()" style="margin-bottom:10px;">
+
+      <div class="row"><label>Thickness</label><input type="number" step="0.001" id="tf" value="0.333" min="0.001" oninput="runCalc()" onblur="clampInput('tf')"><span class="unit">mm</span></div>
+      <div class="row"><label>Ultimate tensile strength, f*<sub>fu</sub></label><input type="number" id="ffu0" value="4084" min="1" oninput="runCalc()" onblur="clampInput('ffu0')"><span class="unit">MPa</span></div>
+      <div class="row"><label>Rupture strain, ε*<sub>fu</sub></label><input type="number" step="0.0001" id="efu0" value="0.0158" min="0.00001" oninput="runCalc()" onblur="clampInput('efu0')"><span class="unit">mm/mm</span></div>
+      <div class="row"><label>Modulus of elasticity, E<sub>f</sub></label><input type="number" id="Ef" value="259251" min="1" oninput="runCalc()" onblur="clampInput('Ef')"><span class="unit">MPa</span></div>
+      <div class="row" style="grid-template-columns:1fr;"><label>Exposure condition</label></div>
+      <select id="exposure" onchange="runCalc()" style="margin-bottom:8px;">
+        <option value="interior" selected>Interior</option>
+        <option value="exterior">Exterior</option>
+        <option value="aggressive">Aggressive</option>
+      </select>
+      <div class="row"><label>Number of plies installed, n</label><input type="number" id="nplies" value="6" step="1" min="0" oninput="runCalc()" onblur="clampInput('nplies')"><span class="unit">pcs</span></div>
+      <div class="row"><label>Additional reduction factor, ψ<sub>f</sub></label><input type="number" step="0.01" id="psif" value="0.95" min="0" oninput="runCalc()" onblur="clampInput('psif')"><span class="unit"></span></div>
+
+      <div class="section-title">Demand loads</div>
+      <div class="row"><label>Required ultimate axial load, P<sub>u</sub></label><input type="number" id="PuReq" value="11000" min="0" oninput="runCalc()" onblur="clampInput('PuReq')"><span class="unit">kN</span></div>
+      <div class="row"><label>Required ultimate moment, M<sub>u</sub></label><input type="number" id="MuReq" value="670" min="0" oninput="runCalc()" onblur="clampInput('MuReq')"><span class="unit">kN·m</span></div>
+
+      <div class="live-note" style="margin-top:14px;"><span class="live-dot"></span>Recalculates live as you type.</div>
+    </div>
+
+    <!-- COLUMN 3 : RESULTS -->
+    <div class="results-col">
+      <div class="dcr-panel">
+        <div class="label">Demand / capacity ratio (strengthened)</div>
+        <div class="dcr-value" id="dcrValue">—</div>
+        <span class="dcr-status" id="dcrStatus">—</span>
+        <div class="dcr-bar-track"><div class="dcr-bar-fill" id="dcrBar" style="width:0%; background:var(--teal-deep);"></div></div>
+        <div class="dcr-sub">
+          <div><span class="k">Capacity point on demand ray, φP<sub>n</sub>/φM<sub>n</sub></span><span class="v" id="outMnAtPu">—</span></div>
+          <div><span class="k">Demand point, P<sub>u</sub>/M<sub>u</sub></span><span class="v" id="outMuReq2">—</span></div>
+          <div><span class="k">Point A (pure axial), φP<sub>n</sub>/φM<sub>n</sub></span><span class="v" id="outPtA">—</span></div>
+          <div><span class="k">Point B, φP<sub>n</sub>/φM<sub>n</sub></span><span class="v" id="outPtB">—</span></div>
+          <div><span class="k">Point C, φP<sub>n</sub>/φM<sub>n</sub></span><span class="v" id="outPtC">—</span></div>
+          <div><span class="k">Confined strength, f'<sub>cc</sub></span><span class="v" id="outFccB">—</span></div>
+        </div>
+      </div>
+
+      <div class="section-diagram">
+        <svg id="pmSvg" viewBox="0 0 340 280"></svg>
+        <div class="diag-caption">φP<sub>n</sub> – φM<sub>n</sub> interaction diagram — unstrengthened (dashed) vs strengthened (solid).</div>
+        <div class="diag-legend" style="margin-top:2px;"><span style="color:var(--teal); font-weight:600;">SIMPLIFIED, PARTIAL DIAGRAM — 3 POINTS (A–B–C) PER ACI 440.2R APPENDIX D, NOT THE FULL ENVELOPE</span></div>
+        <div class="diag-legend">
+          <span><span class="swatch" style="background:#8a8a86;"></span>Unstrengthened, n=0</span>
+          <span><span class="swatch" style="background:#1a7a63;"></span>Strengthened</span>
+          <span><span class="swatch" style="background:#c9102e;"></span>Demand (M<sub>u</sub>, P<sub>u</sub>)</span>
+        </div>
+        <table class="pm-table">
+          <thead>
+            <tr><th>Point</th><th colspan="2">n = 0 plies<br>(unstrengthened)</th><th colspan="2" id="tableNHeader">n plies</th></tr>
+            <tr><th></th><th>φP<sub>n</sub>, kN</th><th>φM<sub>n</sub>, kN·m</th><th>φP<sub>n</sub>, kN</th><th>φM<sub>n</sub>, kN·m</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>A</td><td id="tA_Pu">—</td><td id="tA_Mu">—</td><td id="tA_Pc">—</td><td id="tA_Mc">—</td></tr>
+            <tr><td>B</td><td id="tB_Pu">—</td><td id="tB_Mu">—</td><td id="tB_Pc">—</td><td id="tB_Mc">—</td></tr>
+            <tr><td>C</td><td id="tC_Pu">—</td><td id="tC_Mu">—</td><td id="tC_Pc">—</td><td id="tC_Mc">—</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="steps" id="stepsWrap" style="display:none;">
+    <h2>Calculation trail</h2>
+
+    <div class="step-block">
+      <h3>Step 1 — section properties</h3>
+      <div class="step-row"><span class="k">Gross area, A<sub>g</sub> = H·B</span><span class="v" id="s_Ag">—</span></div>
+      <div class="step-row"><span class="k">Steel area, A<sub>s</sub> = 0.25π·d<sub>b</sub>²·n</span><span class="v" id="s_As">—</span></div>
+      <div class="step-row"><span class="k">Steel ratio, ρ<sub>g</sub> = A<sub>s</sub>/A<sub>g</sub></span><span class="v" id="s_rho">—</span></div>
+      <div class="step-row"><span class="k">Effective depth, d = h − cover − tie − d<sub>b</sub>/2</span><span class="v" id="s_d">—</span></div>
+      <div class="step-row"><span class="k">Confinement effectiveness, κ<sub>a</sub> = A<sub>e</sub>/A<sub>c</sub></span><span class="v" id="s_ka">—</span></div>
+    </div>
+
+    <div class="step-block">
+      <h3>Step 2 — CFRP design material properties</h3>
+      <div class="step-row"><span class="k">Environmental reduction factor, C<sub>E</sub></span><span class="v" id="s_CE">—</span></div>
+      <div class="step-row"><span class="k">Design tensile strength, f<sub>fu</sub> = C<sub>E</sub>·f*<sub>fu</sub></span><span class="v" id="s_ffu">—</span></div>
+      <div class="step-row"><span class="k">Design rupture strain, ε<sub>fu</sub> = C<sub>E</sub>·ε*<sub>fu</sub></span><span class="v" id="s_efu">—</span></div>
+    </div>
+
+    <div class="step-block">
+      <h3>Step 3 — Point A (pure axial)</h3>
+      <div class="step-row"><span class="k">Unstrengthened, φP<sub>nA</sub> = 0.65·0.80·[0.85f'<sub>c</sub>(A<sub>g</sub>−A<sub>s</sub>)+f<sub>y</sub>·A<sub>s</sub>]</span><span class="v" id="s_PnA_u">—</span></div>
+      <div class="step-row"><span class="k">Confining pressure, f<sub>l</sub> = 2n·E<sub>f</sub>·t<sub>f</sub>·ε<sub>fe</sub> / √(H²+B²)</span><span class="v" id="s_flA">—</span></div>
+      <div class="step-row"><span class="k">Confined strength, f'<sub>cc</sub> = f'<sub>c</sub> + ψ<sub>f</sub>·3.3·κ<sub>a</sub>·f<sub>l</sub></span><span class="v" id="s_fccA">—</span></div>
+      <div class="step-row"><span class="k">Strengthened, φP<sub>nA</sub> = 0.65·0.80·[0.85f'<sub>cc</sub>(A<sub>g</sub>−A<sub>s</sub>)+f<sub>y</sub>·A<sub>s</sub>]</span><span class="v" id="s_PnA_c">—</span></div>
+    </div>
+
+    <div class="step-block">
+      <h3>Step 4 — confined stress-strain parameters (Points B &amp; C)</h3>
+      <div class="step-row"><span class="k">Effective FRP strain, ε<sub>fe</sub> = min(0.004, 0.55·ε<sub>fu</sub>)</span><span class="v" id="s_efeB">—</span></div>
+      <div class="step-row"><span class="k">Confining pressure, f<sub>l</sub></span><span class="v" id="s_flB">—</span></div>
+      <div class="step-row"><span class="k">Confined ultimate strain, ε<sub>ccu</sub></span><span class="v" id="s_eccu">—</span></div>
+      <div class="step-row"><span class="k">Confined strength, f'<sub>cc</sub> = f'<sub>c</sub> + ψ<sub>f</sub>·3.3·κ<sub>b</sub>·f<sub>l</sub></span><span class="v" id="s_fccB">—</span></div>
+      <div class="step-row"><span class="k">Slope of linear portion, E<sub>2</sub> = (f'<sub>cc</sub>−f'<sub>c</sub>)/ε<sub>ccu</sub></span><span class="v" id="s_E2">—</span></div>
+      <div class="step-row"><span class="k">Min. confinement ratio, f<sub>l</sub>/f'<sub>c</sub> ≥ 0.09 (ACI 440.2R §12.1.2)</span><span class="v" id="s_minConf">—</span></div>
+    </div>
+
+    <div class="step-block">
+      <h3>Step 5 — Points B &amp; C (unstrengthened vs strengthened)</h3>
+      <div class="step-row"><span class="k">Point B — unstrengthened, φP<sub>nB</sub> / φM<sub>nB</sub></span><span class="v" id="s_PtB_u">—</span></div>
+      <div class="step-row"><span class="k">Point B — strengthened, φP<sub>nB</sub> / φM<sub>nB</sub></span><span class="v" id="s_PtB_c">—</span></div>
+      <div class="step-row"><span class="k">Point C — unstrengthened, φP<sub>nC</sub> / φM<sub>nC</sub></span><span class="v" id="s_PtC_u">—</span></div>
+      <div class="step-row"><span class="k">Point C — strengthened, φP<sub>nC</sub> / φM<sub>nC</sub></span><span class="v" id="s_PtC_c">—</span></div>
+    </div>
+
+    <div class="step-block">
+      <h3>Step 6 — demand / capacity check (radial, proportional loading)</h3>
+      <div class="step-row" id="s_tensionRow" style="display:none;"><span class="k" style="color:var(--danger); font-weight:600;">⚠ Demand ray falls outside Points A–C (tension-controlled) — falling back to Mu / φMnC</span><span class="v"></span></div>
+      <div class="step-row"><span class="k">Ray from origin through (M<sub>u</sub>, P<sub>u</sub>) crosses the curve at φP<sub>n</sub>/φM<sub>n</sub> — or, if tension-controlled, φP<sub>nC</sub>/φM<sub>nC</sub></span><span class="v" id="s_MnAtPu">—</span></div>
+      <div class="step-row"><span class="k">DCR = |demand| / |capacity point on ray| — or, if tension-controlled, M<sub>u</sub> / φM<sub>nC</sub></span><span class="v" id="s_dcr">—</span></div>
+    </div>
+
+    <div class="step-block">
+      <h3>Step 7 — axial-only plies estimate <span class="flag gov">SECONDARY CHECK</span></h3>
+      <div class="step-row"><span class="k">f'<sub>cc</sub> required to reach P<sub>u</sub> alone (ignores M<sub>u</sub>)</span><span class="v" id="s_fccReq">—</span></div>
+      <div class="step-row"><span class="k">Confining pressure required, f<sub>l</sub></span><span class="v" id="s_flReq">—</span></div>
+      <div class="step-row"><span class="k">Plies needed (axial-only, unrounded / rounded up)</span><span class="v" id="s_pliesNeeded">—</span></div>
+      <div class="step-row"><span class="k">Confined ultimate strain check, ε<sub>ccu</sub> &lt; 0.01</span><span class="v" id="s_eccuCheck">—</span></div>
+    </div>
+
+    <div class="note">
+      <strong>Method note.</strong> This mirrors the workbook's <em>Axial&amp;Moment</em> tab exactly: Points A, B and C are
+      computed in closed form per ACI 440.2R Appendix D (Eq. D-1 through D-3i), not by a numerical strain sweep. Per that
+      appendix's own title, this is a <strong>simplified, partial</strong> interaction diagram — only three points (A, B,
+      and the balanced-failure point C) are computed and connected with straight lines; it is not the full, continuously
+      curved P-M envelope, and demand points that fall outside the A-B-C range aren't covered by this method. The
+      steel contribution at each point sums every physical bar layer — 2 corner bars + intermediate-x bars on whichever
+      pair of faces is perpendicular to bending, plus the intermediate-y bars on the other two faces, evenly spaced
+      between them — rather than a single representative layer, so it stays exact for any bar count and either bending
+      axis. Step 7's plies estimate is an axial-only design check (it ignores M<sub>u</sub> entirely) carried over from the
+      spreadsheet's own parallel calculation; it is not what sizes the strengthened curve above, which always uses the
+      "Number of plies installed" you specify.
+    </div>
+  </div>
+
+  <footer>CFRP COLUMN STRENGTHENING — AXIAL + BENDING · FOR PRELIMINARY / EDUCATIONAL USE · VERIFY AGAINST ACI 440.2R AND A LICENSED ENGINEER'S REVIEW BEFORE CONSTRUCTION</footer>
+</div>
+
+<script>
+const CE_TABLE = { interior: 0.95, exterior: 0.85, aggressive: 0.85 };
+const PHI1 = 0.65, PHI2 = 0.80;      // ACI 318 factors for tied columns
+const EPS_C0 = 0.002;                 // unconfined strain at f'c used in the eps_ccu model (AE118)
+const KAPPA_EPS_A = 0.55;             // AE103
+const KAPPA_EPS_B_CAP = 0.004;        // AE114 cap
+
+function num(id){
+  const el = document.getElementById(id);
+  let v = parseFloat(el.value);
+  const min = el.hasAttribute('min') ? parseFloat(el.getAttribute('min')) : null;
+  if(isNaN(v)) v = (min !== null ? min : 0);
+  if(min !== null && v < min) v = min;
+  return v;
+}
+function clampInput(id){
+  const el = document.getElementById(id);
+  const v = num(id); // already clamped/NaN-safe
+  if(parseFloat(el.value) !== v) el.value = v;
+  runCalc();
+}
+function fmt(v, d=2){
+  if(!isFinite(v)) return '—';
+  return v.toLocaleString(undefined, {minimumFractionDigits:d, maximumFractionDigits:d});
+}
+function setText(id, text){ document.getElementById(id).textContent = text; }
+
+/* ---------- smooth "Excel-like" number transitions ---------- */
+const _animState = {};
+function setAnimatedText(id, rawVal, decimals, suffix=''){
+  const el = document.getElementById(id);
+  if(!el) return;
+  if(typeof rawVal !== 'number' || !isFinite(rawVal)){
+    if(_animState[id]){ cancelAnimationFrame(_animState[id]); delete _animState[id]; }
+    el.textContent = '—';
+    delete el.dataset.rawValue;
+    return;
+  }
+  const prevRaw = el.dataset.rawValue;
+  const prevVal = prevRaw !== undefined ? parseFloat(prevRaw) : NaN;
+  el.dataset.rawValue = rawVal;
+  if(!isFinite(prevVal) || Math.abs(prevVal - rawVal) < 1e-9){
+    el.textContent = fmt(rawVal, decimals) + suffix;
+    return;
+  }
+  if(_animState[id]) cancelAnimationFrame(_animState[id]);
+  const duration = 380, start = performance.now();
+  function step(now){
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = fmt(prevVal + (rawVal - prevVal) * eased, decimals) + suffix;
+    if (t < 1){ _animState[id] = requestAnimationFrame(step); }
+    else { el.textContent = fmt(rawVal, decimals) + suffix; delete _animState[id]; }
+  }
+  _animState[id] = requestAnimationFrame(step);
+}
+
+/* ============================================================
+   Parametric bar layout -- 4 corners + nx intermediate bars per
+   face along x + ny intermediate bars per side along y. Matches
+   the workbook's V27:AE32 inputs and the AE26 orientation toggle
+   exactly (BJ66/BJ128 generalized steel layer tables).
+   Returns an array of physical layer groups: {n, y} where y is
+   the distance from the extreme compression fiber (0..h).
+   ============================================================ */
+function buildLayerGroups(h, cover, tie, db, nx, ny, orientation){
+  const nearCover = cover + tie + db/2;
+  const extremeIntermediate = (orientation === 'H') ? nx : ny; // AM27
+  const levelCountL         = (orientation === 'H') ? ny : nx; // AM28
+  const groups = [
+    { n: 2 + extremeIntermediate, y: nearCover },               // Face A
+    { n: 2 + extremeIntermediate, y: h - nearCover }             // Face B
+  ];
+  for(let m = 1; m <= levelCountL; m++){
+    groups.push({ n: 2, y: nearCover + m*(h - 2*nearCover)/(levelCountL + 1) });
+  }
+  return groups;
+}
+
+/* Steel contribution at a given neutral-axis depth c, for a given
+   ultimate strain (unconfined eps_cu or confined eps_ccu). Mirrors
+   BJ66:BU78 / BJ128:BU140 exactly. Returns {sumF (N), sumM (N*mm)}. */
+function steelSums(groups, c, epsUlt, h, db, fy, Es){
+  let sumF = 0, sumM = 0;
+  for(const g of groups){
+    const Asi = 0.25*Math.PI*db*db*g.n;
+    const eps = epsUlt*(c - g.y)/c;
+    const fs = eps === 0 ? 0 : Math.sign(eps)*Math.min(Math.abs(eps)*Es, fy);
+    const Fi = Asi*fs;
+    const Mi = Fi*(h/2 - g.y);
+    sumF += Fi; sumM += Mi;
+  }
+  return { sumF, sumM };
+}
+
+/* Eq. D-3a..D-3i coefficients (verified cell-by-cell against AO/AW69-143). */
+function coeffsABC_DEFGHI(b, h, c, fc, Ec, E2, epsUlt){
+  const k = epsUlt/c;
+  const A = (-b*(Ec-E2)*(Ec-E2)/(12*fc)) * k*k;
+  const Bc = (b*(Ec-E2)/2) * k;
+  const Cc = -b*fc;
+  const D = b*fc*c + (b*c*E2*epsUlt/2);
+  const E = (-b*(Ec-E2)*(Ec-E2)/(16*fc)) * k*k;
+  const F = (b*(c-h/2)*(Ec-E2)*(Ec-E2)*k*k)/(12*fc) + (b*(Ec-E2)*k)/3;
+  const G = -( (b*fc/2) + b*(c-h/2)*((Ec-E2)/2)*k );
+  const Hc = b*fc*(c-h/2);
+  const I = (b*c*c*fc/2) - (b*c*fc*(c-h/2)) + (b*c*c*E2*epsUlt/3) - (epsUlt*(c-h/2)*(b*c*E2/2));
+  return { A, B: Bc, C: Cc, D, E, F, G, H: Hc, I };
+}
+
+/* Full Point-B-or-C evaluation. c = neutral axis depth for THIS point.
+   Returns {Pn (kN), Mn (kN*m)}. */
+function evalPoint(b, h, c, fc, Ec, E2, epsUlt, groups, db, fy, Es){
+  const co = coeffsABC_DEFGHI(b, h, c, fc, Ec, E2, epsUlt);
+  const epsTPrime = (2*fc)/(Ec - E2);
+  const yt = c*epsTPrime/epsUlt;
+  const { sumF, sumM } = steelSums(groups, c, epsUlt, h, db, fy, Es);
+  const Pn = PHI1*( co.A*yt**3 + co.B*yt**2 + co.C*yt + co.D + sumF ) / 1000;
+  const Mn = PHI1*( co.E*yt**4 + co.F*yt**3 + co.G*yt**2 + co.H*yt + co.I + sumM ) / 1e6;
+  return { Pn, Mn };
+}
+
+/* Linear interpolation of capacity moment at a target axial load,
+/* Radial (proportional-loading) demand/capacity check: draws a ray from
+   the origin through the demand point (Mu, Pu) and finds where that ray
+   crosses the piecewise A-B-C capacity envelope. This is the standard way
+   to read a DCR off a P-M interaction diagram -- comparing the demand
+   point against the capacity point in the SAME load direction, not the
+   capacity at a fixed Pu (which silently assumes the moment could grow
+   or shrink independently of the axial load, which it can't for a single
+   proportionally-applied load case). */
+function radialCapacity(curve, Mu, Pu){
+  for(let i = 0; i < curve.length - 1; i++){
+    const p1 = curve[i], p2 = curve[i+1];
+    const dM = p2.M - p1.M, dP = p2.P - p1.P;
+    const denom = Mu*dP - Pu*dM;
+    if(Math.abs(denom) < 1e-9) continue; // ray parallel to this segment
+    const s = (Pu*p1.M - Mu*p1.P)/denom;
+    if(s < -1e-6 || s > 1+1e-6) continue; // intersection not on this segment
+    const Mcap = p1.M + s*dM, Pcap = p1.P + s*dP;
+    const t = (Math.abs(Mu) > Math.abs(Pu)) ? Mcap/Mu : Pcap/Pu;
+    if(t <= 1e-9) continue; // wrong direction along the ray
+    return { Mcap, Pcap, t, inRange: true };
+  }
+  return { Mcap: 0, Pcap: 0, t: 0, inRange: false };
+}
+
+function runCalc(){
+  const H = num('H'), B = num('B'), rc = num('rc');
+  const cover = num('cover'), tie = num('tie'), db = num('db');
+  const fc = num('fc'), fy = num('fy'), Es = num('Es');
+  const orientation = document.getElementById('orientation').value;
+
+  const nx = num('nx'), ny = num('ny');
+  const tf = num('tf'), ffu0 = num('ffu0'), efu0 = num('efu0'), Ef = num('Ef');
+  const exposure = document.getElementById('exposure').value;
+  const nplies = num('nplies'), psif = num('psif');
+  const PuReq = num('PuReq'), MuReq = num('MuReq');
+
+  const nbar = 4 + 2*nx + 2*ny;
+  const Ag = H*B;
+  const As = 0.25*Math.PI*db*db*nbar;
+  const rho = As/Ag;
+
+  const h = (orientation === 'H') ? H : B;
+  const b = (orientation === 'H') ? B : H;
+  const d = h - cover - tie - db/2;
+
+
+  // ---- confinement effectiveness ka (raw H,B -- section-shape property) ----
+  const term1 = (B/H)*Math.pow(H-2*rc,2);
+  const term2 = (H/B)*Math.pow(B-2*rc,2);
+  const ka = (1 - (term1+term2)/(3*Ag) - rho) / (1 - rho);
+
+  // ---- CFRP design material properties ----
+  const CE = CE_TABLE[exposure];
+  const ffu = CE*ffu0, efu = CE*efu0;
+  setAnimatedText('s_CE', CE, 2);
+  setAnimatedText('s_ffu', ffu, 0, ' MPa');
+  setAnimatedText('s_efu', efu, 4);
+
+  const diag = Math.sqrt(H*H + B*B);
+  const groups = buildLayerGroups(h, cover, tie, db, nx, ny, orientation);
+
+  // =================== POINT A ===================
+  const Cax = 0.85*fc*(Ag-As), Sax = fy*As;
+  const PnA_u = (Cax+Sax)*PHI1*PHI2/1000;
+
+  const KappaA = ka*(B/H)*(B/H);
+  const epsFeA = KAPPA_EPS_A*efu0; // raw efu0, not CE-adjusted (matches AE104)
+  const flA = (2*nplies*Ef*tf*epsFeA)/diag;
+  const fccA = fc + psif*3.3*KappaA*flA;
+  const PnA_c = ((0.85*fccA*(Ag-As))+(fy*As))*PHI2*PHI1/1000;
+
+  // =================== confined stress-strain params (shared by B & C) ===================
+  const KappaB = ka*(H/B)*(H/B);
+  const epsFeB = Math.min(KAPPA_EPS_B_CAP, efu*KAPPA_EPS_A); // efu = CE-adjusted (matches AE114)
+  const flB = (2*nplies*Ef*tf*epsFeB)/diag;
+  const epsCcu = EPS_C0*(1.5 + 12*KappaB*(flB/fc)*Math.pow(epsFeB/EPS_C0, 0.45));
+  const fccB = fc + psif*3.3*KappaB*flB;
+  const E2 = (fccB - fc)/epsCcu;
+  const Ec = 4700*Math.sqrt(fc);
+  const minConfRatio = flB/fc;
+  const minConfOK = minConfRatio >= 0.09; // ACI 440.2R §12.1.2 minimum confinement check
+
+  // =================== UNSTRENGTHENED curve (eps_cu=0.003, E2=0) ===================
+  const EPS_CU_UNCONF = 0.003;
+  const c_B_u = d;
+  const c_C_u = d*EPS_CU_UNCONF/((fy/Es)+EPS_CU_UNCONF);
+  const ptB_u = evalPoint(b, h, c_B_u, fc, Ec, 0, EPS_CU_UNCONF, groups, db, fy, Es);
+  const ptC_u = evalPoint(b, h, c_C_u, fc, Ec, 0, EPS_CU_UNCONF, groups, db, fy, Es);
+
+  // =================== STRENGTHENED curve (eps_ccu confined, E2 confined) ===================
+  const c_B_c = d;
+  const c_C_c = d*epsCcu/((fy/Es)+epsCcu);
+  const ptB_c = evalPoint(b, h, c_B_c, fc, Ec, E2, epsCcu, groups, db, fy, Es);
+  const ptC_c = evalPoint(b, h, c_C_c, fc, Ec, E2, epsCcu, groups, db, fy, Es);
+
+  const curveU = [{P:PnA_u, M:0}, {P:ptB_u.Pn, M:ptB_u.Mn}, {P:ptC_u.Pn, M:ptC_u.Mn}];
+  const curveC = [{P:PnA_c, M:0}, {P:ptB_c.Pn, M:ptB_c.Mn}, {P:ptC_c.Pn, M:ptC_c.Mn}];
+
+  // =================== tabulated summary ===================
+  setText('tableNHeader', 'n = ' + nplies + ' ' + (nplies===1?'ply':'plies'));
+  setAnimatedText('tA_Pu', PnA_u, 0); setText('tA_Mu', fmt(0,0));
+  setAnimatedText('tA_Pc', PnA_c, 0); setText('tA_Mc', fmt(0,0));
+  setAnimatedText('tB_Pu', ptB_u.Pn, 0); setAnimatedText('tB_Mu', ptB_u.Mn, 0);
+  setAnimatedText('tB_Pc', ptB_c.Pn, 0); setAnimatedText('tB_Mc', ptB_c.Mn, 0);
+  setAnimatedText('tC_Pu', ptC_u.Pn, 0); setAnimatedText('tC_Mu', ptC_u.Mn, 0);
+  setAnimatedText('tC_Pc', ptC_c.Pn, 0); setAnimatedText('tC_Mc', ptC_c.Mn, 0);
+
+  // =================== demand / capacity check (radial) ===================
+  const rad = radialCapacity(curveC, MuReq, PuReq);
+  // When the demand ray never crosses the A-B or B-C segments, the demand's
+  // Mu/Pu ratio is steeper than Point C's -- i.e. the section is being pushed
+  // past the balanced-failure point into the TENSION-CONTROLLED range, which
+  // the simplified 3-point method (Points A-B-C only) never computes a curve
+  // for. There is no meaningful "capacity point" to measure a radial distance
+  // to in that region, so as a fallback we compare demand moment directly
+  // against Point C's own moment capacity: DCR = Mu / MnC. Past the balanced
+  // point, available moment capacity only grows as axial load drops further,
+  // so MnC is a reasonable (and conservative) ceiling for this check.
+  const tensionControlled = !rad.inRange;
+  let dcr, ok;
+  if(tensionControlled){
+    dcr = (ptC_c.Mn > 0) ? (MuReq / ptC_c.Mn) : Infinity;
+    ok = isFinite(dcr) && dcr <= 1;
+  } else {
+    dcr = 1/rad.t;
+    ok = dcr <= 1;
+  }
+
+  setText('outMnAtPu', tensionControlled
+    ? (fmt(ptC_c.Pn,0) + ' kN / ' + fmt(ptC_c.Mn,1) + ' (Point C)')
+    : (fmt(rad.Pcap,0) + ' kN / ' + fmt(rad.Mcap,1)));
+  setText('outMuReq2', fmt(PuReq,0) + ' kN / ' + fmt(MuReq,1));
+  setText('outPtA', fmt(PnA_c,0) + ' kN / 0.0');
+  setText('outPtB', fmt(ptB_c.Pn,0) + ' kN / ' + fmt(ptB_c.Mn,1));
+  setText('outPtC', fmt(ptC_c.Pn,0) + ' kN / ' + fmt(ptC_c.Mn,1));
+  setAnimatedText('outFccB', fccB, 2, ' MPa');
+
+  setAnimatedText('dcrValue', isFinite(dcr) ? dcr : 0, 2);
+  const dcrStatusEl = document.getElementById('dcrStatus');
+  const dcrBarEl = document.getElementById('dcrBar');
+  if(!minConfOK){
+    dcrStatusEl.textContent = 'MIN. CONFINEMENT RATIO NOT MET (fl/f\'c < 0.09)';
+    dcrStatusEl.className = 'dcr-status fail';
+  } else if(tensionControlled){
+    dcrStatusEl.textContent = '\u26A0 TENSION-CONTROLLED \u2014 CHECKED AGAINST Mu / \u03c6MnC \u2014 ' + (ok ? 'OK' : 'EXCEEDS CAPACITY');
+    dcrStatusEl.className = 'dcr-status ' + (ok ? 'ok' : 'fail');
+  } else if(ok){
+    dcrStatusEl.textContent = 'OK — DEMAND WITHIN CAPACITY';
+    dcrStatusEl.className = 'dcr-status ok';
+  } else {
+    dcrStatusEl.textContent = 'EXCEEDS CAPACITY';
+    dcrStatusEl.className = 'dcr-status fail';
+  }
+  dcrBarEl.style.width = Math.min(100, Math.max(0,isFinite(dcr)?dcr:1)*100) + '%';
+  dcrBarEl.style.background = ok ? 'var(--ok)' : 'var(--danger)';
+
+  // =================== axial-only "plies needed" secondary check ===================
+  const fccReq = ((PuReq*1000/(0.8*PHI1)) - Sax) / (0.85*(Ag-As));
+  const flReq = (fccReq - fc)/(3.3*ka*CE);
+  const pliesRaw = (flReq*diag) / (2*Ef*tf*0.55*efu0);
+  const pliesNeeded = Math.ceil(pliesRaw);
+  const epsFeCheck = Math.min(0.55*efu0, flReq/fc);
+  const epsCcuCheck = EPS_C0*(1.5 + 12*ka*(flReq/fc)*Math.pow(epsFeCheck/EPS_C0, 0.45));
+  const eccuCheckOK = epsCcuCheck < 0.01;
+
+  // =================== steps ===================
+  document.getElementById('stepsWrap').style.display = 'block';
+  setAnimatedText('s_Ag', Ag, 0, ' mm²');
+  setAnimatedText('s_As', As, 0, ' mm²');
+  setAnimatedText('s_rho', rho, 4);
+  setAnimatedText('s_d', d, 1, ' mm');
+  setAnimatedText('s_ka', ka, 3);
+
+  setText('s_PnA_u', fmt(PnA_u,1) + ' kN');
+  setAnimatedText('s_flA', flA, 3, ' MPa');
+  setAnimatedText('s_fccA', fccA, 2, ' MPa');
+  setText('s_PnA_c', fmt(PnA_c,1) + ' kN');
+
+  setAnimatedText('s_efeB', epsFeB, 5);
+  setAnimatedText('s_flB', flB, 3, ' MPa');
+  setAnimatedText('s_eccu', epsCcu, 5);
+  setAnimatedText('s_fccB', fccB, 2, ' MPa');
+  setAnimatedText('s_E2', E2, 1, ' MPa');
+  setText('s_minConf', fmt(minConfRatio,3) + ' — ' + (minConfOK ? 'OKAY' : 'NOT OKAY (below ACI minimum)'));
+
+  setText('s_PtB_u', fmt(ptB_u.Pn,0) + ' kN / ' + fmt(ptB_u.Mn,1) + ' kN·m');
+  setText('s_PtB_c', fmt(ptB_c.Pn,0) + ' kN / ' + fmt(ptB_c.Mn,1) + ' kN·m');
+  setText('s_PtC_u', fmt(ptC_u.Pn,0) + ' kN / ' + fmt(ptC_u.Mn,1) + ' kN·m');
+  setText('s_PtC_c', fmt(ptC_c.Pn,0) + ' kN / ' + fmt(ptC_c.Mn,1) + ' kN·m');
+
+  document.getElementById('s_tensionRow').style.display = tensionControlled ? 'flex' : 'none';
+  setText('s_MnAtPu', tensionControlled
+    ? (fmt(ptC_c.Pn,0) + ' kN / ' + fmt(ptC_c.Mn,1) + ' kN·m (Point C)')
+    : (rad.inRange ? (fmt(rad.Pcap,0) + ' kN / ' + fmt(rad.Mcap,1) + ' kN·m') : 'no intersection'));
+  setText('s_dcr', (isFinite(dcr) ? fmt(dcr,2) : '—') + (ok ? ' — OK' : ' — CHECK'));
+
+  setAnimatedText('s_fccReq', fccReq, 2, ' MPa');
+  setAnimatedText('s_flReq', flReq, 3, ' MPa');
+  setText('s_pliesNeeded', fmt(pliesRaw,2) + ' / ' + pliesNeeded + ' pcs');
+  setText('s_eccuCheck', fmt(epsCcuCheck,5) + ' — ' + (eccuCheckOK ? 'OKAY' : 'NOT OKAY'));
+
+  animatePMChart(curveU, curveC, MuReq, PuReq);
+  drawSection(H, B, rc, cover, tie, db, nx, ny, nplies, orientation);
+}
+
+/* ---------- animated P-M chart transitions ---------- */
+let _pmAnimFrame = null;
+let _pmPrevState = null; // {curveU, curveC, Mu, Pu}
+
+function lerpCurve(a, b, t){
+  return a.map((pt, i) => ({ P: pt.P + (b[i].P - pt.P) * t, M: pt.M + (b[i].M - pt.M) * t }));
+}
+
+function animatePMChart(curveU, curveC, Mu, Pu){
+  const newState = { curveU, curveC, Mu, Pu };
+  if(!_pmPrevState){
+    drawPMChart(curveU, curveC, Mu, Pu);
+    _pmPrevState = newState;
+    return;
+  }
+  if(_pmAnimFrame) cancelAnimationFrame(_pmAnimFrame);
+  const from = _pmPrevState;
+  const duration = 450, start = performance.now();
+  function step(now){
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic, matches the number counters
+    drawPMChart(
+      lerpCurve(from.curveU, curveU, eased),
+      lerpCurve(from.curveC, curveC, eased),
+      from.Mu + (Mu - from.Mu) * eased,
+      from.Pu + (Pu - from.Pu) * eased
+    );
+    if(t < 1){ _pmAnimFrame = requestAnimationFrame(step); }
+    else { drawPMChart(curveU, curveC, Mu, Pu); _pmAnimFrame = null; }
+  }
+  _pmAnimFrame = requestAnimationFrame(step);
+  _pmPrevState = newState;
+}
+
+function drawPMChart(curveU, curveC, Mu, Pu){
+  const svg = document.getElementById('pmSvg');
+  const viewW = 340, viewH = 280;
+  const marginL = 56, marginR = 20, marginTop = 16, marginBot = 38;
+  const plotW = viewW - marginL - marginR;
+  const plotH = viewH - marginTop - marginBot;
+
+  const allM = curveC.map(p=>p.M).concat(curveU.map(p=>p.M)).concat([Mu, 1]);
+  const allP = curveC.map(p=>p.P).concat(curveU.map(p=>p.P)).concat([Pu, 1]);
+  const maxM = Math.max(...allM) * 1.15;
+  const maxP = Math.max(...allP) * 1.1;
+
+  const xOf = m => marginL + (m/maxM)*plotW;
+  const yOf = p => marginTop + plotH - (Math.max(0,p)/maxP)*plotH;
+
+  let gridLines = '';
+  const nTicks = 4;
+  for(let i = 0; i <= nTicks; i++){
+    const gx = marginL + (i/nTicks)*plotW;
+    const gy = marginTop + (i/nTicks)*plotH;
+    gridLines += `<line x1="${gx.toFixed(1)}" y1="${marginTop}" x2="${gx.toFixed(1)}" y2="${(marginTop+plotH).toFixed(1)}" stroke="#e4ddc9" stroke-width="1"/>`;
+    gridLines += `<line x1="${marginL}" y1="${gy.toFixed(1)}" x2="${(marginL+plotW).toFixed(1)}" y2="${gy.toFixed(1)}" stroke="#e4ddc9" stroke-width="1"/>`;
+    gridLines += `<text x="${gx.toFixed(1)}" y="${(marginTop+plotH+14).toFixed(1)}" font-size="7.5" fill="#5a5a58" text-anchor="middle" font-family="IBM Plex Mono, monospace">${(maxM*i/nTicks).toFixed(0)}</text>`;
+    gridLines += `<text x="${(marginL-6).toFixed(1)}" y="${(gy+3).toFixed(1)}" font-size="7.5" fill="#5a5a58" text-anchor="end" font-family="IBM Plex Mono, monospace">${(maxP*(nTicks-i)/nTicks).toFixed(0)}</text>`;
+  }
+
+  function pathFor(curve){
+    return curve.map((p,i) => `${i===0?'M':'L'} ${xOf(p.M).toFixed(1)} ${yOf(p.P).toFixed(1)}`).join(' ');
+  }
+  // dashed "balance lines" from origin through B and through C for BOTH curves,
+  // echoing the ACI worked-example figure
+  const originX = xOf(0), originY = yOf(0);
+  const bx = xOf(curveC[1].M), by = yOf(curveC[1].P);
+  const cx2 = xOf(curveC[2].M), cy2 = yOf(curveC[2].P);
+  const bxU = xOf(curveU[1].M), byU = yOf(curveU[1].P);
+  const cxU = xOf(curveU[2].M), cyU = yOf(curveU[2].P);
+
+  const px = xOf(Mu), py = yOf(Pu);
+  const markers = curveC.map(p => `<circle cx="${xOf(p.M).toFixed(1)}" cy="${yOf(p.P).toFixed(1)}" r="3" fill="#1a7a63" stroke="#0b0b0c" stroke-width="0.8"/>`).join('');
+  const markersU = curveU.map(p => `<circle cx="${xOf(p.M).toFixed(1)}" cy="${yOf(p.P).toFixed(1)}" r="2.6" fill="#8a8a86" stroke="#0b0b0c" stroke-width="0.7"/>`).join('');
+
+  // radial demand ray, extended out to the capacity curve intersection (if any)
+  const rad = radialCapacity(curveC, Mu, Pu);
+  let rayMarkup = '';
+  if(rad.inRange){
+    const capX = xOf(rad.Mcap), capY = yOf(rad.Pcap);
+    rayMarkup = `
+      <line x1="${originX.toFixed(1)}" y1="${originY.toFixed(1)}" x2="${capX.toFixed(1)}" y2="${capY.toFixed(1)}" stroke="#c9102e" stroke-width="1.3" stroke-dasharray="2 2"/>
+      <circle cx="${capX.toFixed(1)}" cy="${capY.toFixed(1)}" r="3.5" fill="none" stroke="#c9102e" stroke-width="1.6"/>`;
+  } else {
+    // tension-controlled fallback: no point on the A-B-C curve shares the
+    // demand's Mu/Pu ratio, so instead draw the distance from Point C
+    // straight to the demand point, and call out why.
+    const cPtX = xOf(curveC[2].M), cPtY = yOf(curveC[2].P);
+    rayMarkup = `
+      <line x1="${cPtX.toFixed(1)}" y1="${cPtY.toFixed(1)}" x2="${px.toFixed(1)}" y2="${py.toFixed(1)}" stroke="#c9102e" stroke-width="1.6" stroke-dasharray="2 2"/>
+      <text x="${((cPtX+px)/2).toFixed(1)}" y="${((cPtY+py)/2-6).toFixed(1)}" font-size="8" font-weight="700" fill="#c9102e" text-anchor="middle" font-family="IBM Plex Mono, monospace">TENSION-CONTROLLED</text>`;
+  }
+
+  svg.innerHTML = `
+    ${gridLines}
+    <line x1="${marginL}" y1="${(marginTop+plotH).toFixed(1)}" x2="${(marginL+plotW).toFixed(1)}" y2="${(marginTop+plotH).toFixed(1)}" stroke="#1a1a1a" stroke-width="1.3"/>
+    <line x1="${marginL}" y1="${marginTop}" x2="${marginL}" y2="${(marginTop+plotH).toFixed(1)}" stroke="#1a1a1a" stroke-width="1.3"/>
+    <text x="${(marginL+plotW/2).toFixed(1)}" y="${(viewH-6).toFixed(1)}" font-size="9.5" fill="#242423" text-anchor="middle" font-family="IBM Plex Mono, monospace">Moment, φM<tspan baseline-shift="sub" font-size="7">n</tspan> [kN·m]</text>
+    <text x="13" y="${(marginTop+plotH/2).toFixed(1)}" font-size="9.5" fill="#242423" text-anchor="middle" font-family="IBM Plex Mono, monospace" transform="rotate(-90 13 ${(marginTop+plotH/2).toFixed(1)})">Axial, φP<tspan baseline-shift="sub" font-size="7">n</tspan> [kN]</text>
+    <line x1="${originX.toFixed(1)}" y1="${originY.toFixed(1)}" x2="${bxU.toFixed(1)}" y2="${byU.toFixed(1)}" stroke="#c9c9c5" stroke-width="1" stroke-dasharray="3 2"/>
+    <line x1="${originX.toFixed(1)}" y1="${originY.toFixed(1)}" x2="${cxU.toFixed(1)}" y2="${cyU.toFixed(1)}" stroke="#c9c9c5" stroke-width="1" stroke-dasharray="3 2"/>
+    <line x1="${originX.toFixed(1)}" y1="${originY.toFixed(1)}" x2="${bx.toFixed(1)}" y2="${by.toFixed(1)}" stroke="#c9b98a" stroke-width="1" stroke-dasharray="3 2"/>
+    <line x1="${originX.toFixed(1)}" y1="${originY.toFixed(1)}" x2="${cx2.toFixed(1)}" y2="${cy2.toFixed(1)}" stroke="#c9b98a" stroke-width="1" stroke-dasharray="3 2"/>
+    <path d="${pathFor(curveU)}" fill="none" stroke="#8a8a86" stroke-width="1.6" stroke-dasharray="4 2"/>
+    <path d="${pathFor(curveC)}" fill="none" stroke="#1a7a63" stroke-width="2.2"/>
+    ${rayMarkup}    ${markersU}    ${markers}
+    <circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="4.5" fill="#c9102e" stroke="#1a1a1a" stroke-width="1"/>
+    <text x="${px.toFixed(1)}" y="${(py-9).toFixed(1)}" font-size="8" fill="#242423" text-anchor="middle" font-family="IBM Plex Mono, monospace">(${Mu.toFixed(0)}, ${Pu.toFixed(0)})</text>
+  `;
+}
+
+function drawSection(H, B, rc, cover, tie, db, nx, ny, plies, orientation){
+  const svg = document.getElementById('sectionSvg');
+  if(![H,B,rc,cover,tie,db].every(isFinite) || H<=0 || B<=0){ svg.innerHTML=''; return; }
+
+  const pad = 50;
+  const drawArea = 320 - 2*pad;
+  const scale = drawArea / Math.max(H,B);
+  const drawW = B*scale, drawH = H*scale;
+  const x0 = (320-drawW)/2, y0 = (320-drawH)/2;
+  const rDraw = Math.max(2, rc*scale);
+  // jacket band thickness scales visibly with the number of plies installed (capped so it can't crowd the canvas)
+  const jacketOffset = Math.min(22, 3 + plies*1.7);
+  // bar marker radius scales with the actual bar diameter input
+  const barR = Math.max(2, Math.min(5.5, db*scale*0.5));
+
+  // physical bar coordinates: corners + nx along top/bottom (x-faces) + ny along left/right (y-faces)
+  const cxIn = (cover+tie+db/2)*scale, cyIn = (cover+tie+db/2)*scale;
+  const bx0 = x0+cxIn, by0 = y0+cyIn, bw = drawW-2*cxIn, bh = drawH-2*cyIn;
+  let bars = [
+    {x:bx0, y:by0}, {x:bx0+bw, y:by0}, {x:bx0, y:by0+bh}, {x:bx0+bw, y:by0+bh}
+  ];
+  for(let i=1; i<=nx; i++){
+    const fx = bx0 + i*bw/(nx+1);
+    bars.push({x:fx, y:by0}); bars.push({x:fx, y:by0+bh});
+  }
+  for(let i=1; i<=ny; i++){
+    const fy2 = by0 + i*bh/(ny+1);
+    bars.push({x:bx0, y:fy2}); bars.push({x:bx0+bw, y:fy2});
+  }
+  const barsMarkup = bars.map(p => `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${barR.toFixed(2)}" fill="#8a5a12" stroke="#4a2f09" stroke-width="0.5"/>`).join('');
+
+  const depthLabel = orientation === 'H' ? 'h = H (depth)' : 'h = B (depth)';
+
+  const jx = x0-jacketOffset, jy = y0-jacketOffset, jw = drawW+2*jacketOffset, jh = drawH+2*jacketOffset, jr = rDraw+jacketOffset;
+  const left = jx, right = jx+jw;
+  const bandW = (right-left)*0.4;
+
+  // dimension line/text helpers -- bold, high-contrast, with arrowheads and a paper backing chip
+  function dimLabel(cx, cy, text, rotate){
+    const w = text.length*7.2+10, h = 15;
+    const t = rotate ? `transform="rotate(-90 ${cx.toFixed(1)} ${cy.toFixed(1)})"` : '';
+    return `<g ${t}>
+      <rect x="${(cx-w/2).toFixed(1)}" y="${(cy-h/2-2).toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" rx="3" fill="#f2f1ee" opacity="0.92"/>
+      <text x="${cx.toFixed(1)}" y="${(cy+3).toFixed(1)}" font-size="12" font-weight="700" fill="#1a1a1a" text-anchor="middle" font-family="IBM Plex Mono, monospace">${text}</text>
+    </g>`;
+  }
+
+  svg.innerHTML = `
+    <defs>
+      <marker id="dimArrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#1a1a1a"/>
+      </marker>
+      <linearGradient id="flowGrad" gradientUnits="userSpaceOnUse" x1="${(left-bandW).toFixed(1)}" y1="0" x2="${left.toFixed(1)}" y2="0">
+        <stop offset="0%" stop-color="#ff8aa0" stop-opacity="0"/>
+        <stop offset="50%" stop-color="#ffc2cc" stop-opacity="0.95"/>
+        <stop offset="100%" stop-color="#ff8aa0" stop-opacity="0"/>
+        <animate attributeName="x1" values="${(left-bandW).toFixed(1)};${right.toFixed(1)};${right.toFixed(1)}" keyTimes="0;0.5;1" dur="4s" repeatCount="indefinite"/>
+        <animate attributeName="x2" values="${left.toFixed(1)};${(right+bandW).toFixed(1)};${(right+bandW).toFixed(1)}" keyTimes="0;0.5;1" dur="4s" repeatCount="indefinite"/>
+      </linearGradient>
+    </defs>
+    <rect x="${jx.toFixed(1)}" y="${jy.toFixed(1)}" width="${jw.toFixed(1)}" height="${jh.toFixed(1)}"
+      rx="${jr.toFixed(1)}" fill="rgba(201,16,46,0.16)" stroke="#c9102e" stroke-width="2.2" stroke-dasharray="5 3"/>
+    <rect x="${x0.toFixed(1)}" y="${y0.toFixed(1)}" width="${drawW.toFixed(1)}" height="${drawH.toFixed(1)}"
+      rx="${rDraw.toFixed(1)}" fill="#e8e6df" stroke="#1a1a1a" stroke-width="1.5"/>
+    <rect x="${jx.toFixed(1)}" y="${jy.toFixed(1)}" width="${jw.toFixed(1)}" height="${jh.toFixed(1)}"
+      rx="${jr.toFixed(1)}" fill="none" stroke="url(#flowGrad)" stroke-width="4.5"/>
+    ${barsMarkup}
+    <text x="160" y="${(y0-jacketOffset-8).toFixed(1)}" font-size="9" text-anchor="middle" fill="#242423" font-family="IBM Plex Mono, monospace">CFRP jacket — ${plies} ${plies===1?'ply':'plies'}</text>
+
+    <line x1="${(x0-jacketOffset-16).toFixed(1)}" y1="${(y0+6).toFixed(1)}" x2="${(x0-jacketOffset-16).toFixed(1)}" y2="${(y0+drawH-6).toFixed(1)}" stroke="#1a1a1a" stroke-width="1.8" marker-start="url(#dimArrow)" marker-end="url(#dimArrow)"/>
+    ${dimLabel(x0-jacketOffset-24, y0+drawH/2, `H = ${H.toFixed(0)} mm`, true)}
+
+    <line x1="${(x0+6).toFixed(1)}" y1="${(y0+drawH+jacketOffset+14).toFixed(1)}" x2="${(x0+drawW-6).toFixed(1)}" y2="${(y0+drawH+jacketOffset+14).toFixed(1)}" stroke="#1a1a1a" stroke-width="1.8" marker-start="url(#dimArrow)" marker-end="url(#dimArrow)"/>
+    ${dimLabel(x0+drawW/2, y0+drawH+jacketOffset+26, `B = ${B.toFixed(0)} mm`, false)}
+
+    <text x="160" y="${(y0+drawH+jacketOffset+46).toFixed(1)}" font-size="8.5" text-anchor="middle" fill="#5a5a58" font-family="IBM Plex Mono, monospace">${depthLabel}</text>
+  `;
+
+  document.getElementById('diagCaption').textContent =
+    `Cross-section, drawn to scale — ${4+2*nx+2*ny} bars (4 corner + ${nx*2} along x + ${ny*2} along y), ${plies} CFRP ${plies===1?'ply':'plies'}.`;
+}
+
+runCalc();
+
+</script>
+</body>
+</html>

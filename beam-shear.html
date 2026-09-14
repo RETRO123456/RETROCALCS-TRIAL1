@@ -1,0 +1,663 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RetroCrete FC — CFRP Beam Shear Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/style.css">
+<style>
+  .grid{display:grid; grid-template-columns:1fr 1fr; gap:24px;}
+</style>
+</head>
+<body>
+<script src="/assets/nav.js"></script>
+<div class="wrap">
+
+  <header class="title-block">
+    <div style="display:flex; align-items:flex-start; gap:16px;">
+      <div class="brand-mark"><img src="/assets/retrocrete-logo.jpg" alt="RetroCrete FC logo"></div>
+      <div>
+        <h1>CFRP beam shear strengthening — analysis</h1>
+        <p>Checks the design shear capacity of a reinforced concrete beam strengthened with externally bonded CFRP shear reinforcement, per the ACI 440.2R method.</p>
+      </div>
+    </div>
+    <div class="meta">
+      METHOD <span>ACI 440.2R</span><br>
+      MEMBER <span>BEAM</span><br>
+      MODE <span>ANALYSIS</span>
+    </div>
+  </header>
+
+  <div class="grid-3col">
+    <!-- INPUT: COLUMN 1 -->
+    <div class="card">
+      <h2>Beam &amp; stirrups</h2>
+      <p class="sub">Existing section, unstrengthened.</p>
+
+      <div class="row"><label>Beam width, b<sub>w</sub></label><input type="number" id="bw" value="300" step="25" oninput="runCalc()"><span class="unit">mm</span></div>
+      <div class="row"><label>Beam depth, h</label><input type="number" id="h" value="500" step="25" oninput="runCalc()"><span class="unit">mm</span></div>
+      <div class="row"><label>Slab thickness</label><input type="number" id="slabT" value="150" min="0" step="25" oninput="runCalc()"><span class="unit">mm</span></div>
+      <div class="row"><label>Available height for wrap</label><input type="number" id="hAvail" value="350" readonly><span class="unit">mm</span></div>
+      <div class="row"><label>Steel cover</label><input type="number" id="cover" value="60" oninput="runCalc()"><span class="unit">mm</span></div>
+      <div class="row"><label>Stirrup bar diameter</label><input type="number" id="dbStirrup" value="10" oninput="runCalc()"><span class="unit">mm</span></div>
+      <div class="row"><label>No. of stirrup legs</label><input type="number" id="nLegs" value="2" step="1" oninput="runCalc()"><span class="unit">pcs</span></div>
+      <div class="row"><label>Stirrup spacing</label><input type="number" id="sStirrup" value="150" oninput="runCalc()"><span class="unit">mm</span></div>
+      <div class="row"><label>Concrete strength, f'<sub>c</sub></label><input type="number" id="fc" value="28" oninput="runCalc()"><span class="unit">MPa</span></div>
+      <div class="row"><label>Transverse bar yield, f<sub>yv</sub></label><input type="number" id="fyv" value="276" oninput="runCalc()"><span class="unit">MPa</span></div>
+
+      <div class="section-title">Required shear</div>
+      <div class="row"><label>Required ultimate shear, V<sub>u</sub></label><input type="number" id="VuKN" value="350" oninput="runCalc()"><span class="unit">kN</span></div>
+    </div>
+
+    <!-- INPUT: COLUMN 2 -->
+    <div class="card">
+      <h2>CFRP system</h2>
+      <p class="sub">Manufacturer-reported (uncorrected) properties.</p>
+
+      <div class="row" style="grid-template-columns:1fr;"><label>Wrap configuration</label></div>
+      <select id="wrap" onchange="runCalc()" style="margin-bottom:10px;">
+        <option value="uwrap" selected>U-Wrap (3-side)</option>
+        <option value="full">Full wrap</option>
+        <option value="two-sides">Two sides bonded</option>
+      </select>
+
+      <div class="row" style="grid-template-columns:1fr;"><label>Strip layout</label></div>
+      <select id="stripLayout" onchange="applyStripLayout()" style="margin-bottom:10px;">
+        <option value="full" selected>Full wrap (continuous)</option>
+        <option value="spaced">Spaced out (discrete strips)</option>
+      </select>
+
+      <div class="two-col">
+        <div class="row" style="grid-template-columns:1fr;"><label>Fiber type</label></div>
+        <div class="row" style="grid-template-columns:1fr;"><label>Exposure condition</label></div>
+      </div>
+      <div class="two-col">
+        <select id="fiber" onchange="runCalc()">
+          <option value="carbon" selected>Carbon</option>
+          <option value="glass">Glass</option>
+          <option value="aramid">Aramid</option>
+        </select>
+        <select id="exposure" onchange="runCalc()">
+          <option value="interior" selected>Interior</option>
+          <option value="exterior">Exterior</option>
+          <option value="aggressive">Aggressive</option>
+        </select>
+      </div>
+
+      <div class="section-title" style="margin-top:12px;">Product selection</div>
+      <div class="row" style="grid-template-columns:1fr;"><label>CFRP product</label></div>
+      <select id="cfrpProduct" onchange="applyCfrpProduct()" style="margin-bottom:10px;">
+        <option value="RETROWRAP - 200 GSM" selected>RETROWRAP — 200 GSM</option>
+        <option value="RETROWRAP - 300 GSM">RETROWRAP — 300 GSM</option>
+        <option value="RETROWRAP - 600 GSM">RETROWRAP — 600 GSM</option>
+        <option value="RETROPLATE - 200 GSM">RETROPLATE — 200 GSM</option>
+        <option value="RETROPLATE - 300 GSM">RETROPLATE — 300 GSM</option>
+        <option value="RETROPLATE - 600 GSM">RETROPLATE — 600 GSM</option>
+      </select>
+
+      <div class="section-title">Ply properties</div>
+      <div class="row"><label>Thickness per ply</label><input type="number" step="0.001" id="tf" value="0.111" readonly oninput="runCalc()"><span class="unit">mm</span></div>
+      <div class="row"><label>Ultimate tensile strength, f*<sub>fu</sub></label><input type="number" id="ffu" value="3400" readonly oninput="runCalc()"><span class="unit">MPa</span></div>
+      <div class="row"><label>Rupture strain, ε*<sub>fu</sub></label><input type="number" step="0.0001" id="efu" value="0.018" readonly oninput="runCalc()"><span class="unit">mm/mm</span></div>
+      <div class="row"><label>Modulus of elasticity, E<sub>f</sub></label><input type="number" id="Ef" value="230000" readonly oninput="runCalc()"><span class="unit">MPa</span></div>
+      <div class="row"><label>Number of plies</label><input type="number" id="plies" min="1" step="1" value="2" oninput="runCalc()"><span class="unit">pcs</span></div>
+      <div class="row"><label>Width of strip, w<sub>f</sub></label><input type="number" id="wf" value="500" oninput="runCalc()"><span class="unit">mm</span></div>
+      <div class="row"><label>Clear spacing between strips</label><input type="number" id="gap" min="0" value="0" readonly oninput="runCalc()"><span class="unit">mm</span></div>
+      <div class="row"><label>Angle of FRP from horizontal, α</label><input type="number" id="betaDeg" value="90" min="30" max="90" oninput="runCalc()"><span class="unit">deg</span></div>
+
+      <div class="live-note" style="margin-top:20px;"><span class="live-dot"></span>Recalculates live as you type.</div>
+    </div>
+
+    <!-- RESULTS: COLUMN 3 -->
+    <div id="resultsSection" class="results-col" style="scroll-margin-top:20px;">
+      <div class="dcr-panel">
+        <div class="label">Design / capacity ratio</div>
+        <div class="dcr-value" id="dcrValue">—</div>
+        <span class="dcr-status" id="dcrStatus">RUN ANALYSIS</span>
+        <div class="dcr-bar-track"><div class="dcr-bar-fill" id="dcrBar" style="width:0%; background:var(--teal-deep);"></div></div>
+        <div class="dcr-sub">
+          <div><span class="k">Design shear, φV<sub>n</sub></span><span class="v" id="outPhiVn">—</span></div>
+          <div><span class="k">Required shear, V<sub>u</sub></span><span class="v" id="outVreq">—</span></div>
+          <div><span class="k">FRP contribution, ψ<sub>f</sub>·V<sub>f</sub></span><span class="v" id="outVfShare">—</span></div>
+          <div><span class="k">Original strength, φ(V<sub>c</sub>+V<sub>s</sub>)</span><span class="v" id="outOriginal">—</span></div>
+        </div>
+      </div>
+
+      <div class="section-diagram">
+        <svg id="shearSvg" viewBox="0 0 700 260"></svg>
+        <div class="diag-caption" id="diagCaption">Cross-section and elevation, drawn to the input dimensions.</div>
+        <div class="diag-legend">
+          <span><span class="swatch" style="background:#8a5a12;"></span>Existing stirrup</span>
+          <span><span class="swatch" style="background:#c9102e;"></span>CFRP strip</span>
+          <span><span class="swatch" style="background:repeating-linear-gradient(45deg,#8a8a86,#8a8a86 2px,transparent 2px,transparent 4px);"></span>Slab / inaccessible zone</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="steps" id="stepsWrap" style="display:none;">
+    <h2>Calculation trail</h2>
+
+    <div class="step-block">
+      <h3>Step 1 — unstrengthened shear capacity</h3>
+      <div class="step-row"><span class="k">Flexural effective depth, d = h − cover</span><span class="v" id="s_d">—</span></div>
+      <div class="step-row"><span class="k">FRP-effective depth, d<sub>fv</sub> = h(avail) − cover</span><span class="v" id="s_dfv">—</span></div>
+      <div class="step-row"><span class="k">Concrete shear capacity, V<sub>c</sub> = 0.17√f'<sub>c</sub>·b<sub>w</sub>·d</span><span class="v" id="s_Vc">—</span></div>
+      <div class="step-row"><span class="k">Stirrup area, A<sub>v</sub> (all legs)</span><span class="v" id="s_Av">—</span></div>
+      <div class="step-row"><span class="k">Stirrup shear capacity, V<sub>s</sub> = A<sub>v</sub>·f<sub>yv</sub>·d/s</span><span class="v" id="s_Vs">—</span></div>
+    </div>
+
+    <div class="step-block">
+      <h3>Step 2 — CFRP design properties &amp; effective strain</h3>
+      <div class="step-row"><span class="k">Environmental reduction factor, C<sub>E</sub></span><span class="v" id="s_CE">—</span></div>
+      <div class="step-row"><span class="k">Design tensile strength, f<sub>fu</sub> = C<sub>E</sub>·f*<sub>fu</sub></span><span class="v" id="s_ffu">—</span></div>
+      <div class="step-row"><span class="k">Design rupture strain, ε<sub>fu</sub> = C<sub>E</sub>·ε*<sub>fu</sub></span><span class="v" id="s_efu">—</span></div>
+      <div class="step-row"><span class="k">FRP strength reduction factor, ψ<sub>f</sub></span><span class="v" id="s_psi">—</span></div>
+      <div class="step-row"><span class="k">Modification factor, concrete strength, k<sub>1</sub></span><span class="v" id="s_k1">—</span></div>
+      <div class="step-row"><span class="k">Active bond length, L<sub>e</sub></span><span class="v" id="s_Le">—</span></div>
+      <div class="step-row"><span class="k">Modification factor, wrap scheme, k<sub>2</sub></span><span class="v" id="s_k2">—</span></div>
+      <div class="step-row"><span class="k">Bond-dependent coefficient, κ<sub>v</sub> (≤ 0.75)</span><span class="v" id="s_kv">—</span></div>
+      <div class="step-row"><span class="k">Effective strain in CFRP, ε<sub>fe</sub></span><span class="v" id="s_efe">—</span></div>
+      <div class="step-row"><span class="k">Effective stress in CFRP, f<sub>fe</sub></span><span class="v" id="s_ffe">—</span></div>
+    </div>
+
+    <div class="step-block">
+      <h3>Step 3 — CFRP shear contribution</h3>
+      <div class="step-row"><span class="k">Area of FRP shear reinforcement, A<sub>fv</sub></span><span class="v" id="s_Af">—</span></div>
+      <div class="step-row"><span class="k">Center-to-center spacing, s<sub>f</sub> = w<sub>f</sub> + gap</span><span class="v" id="s_sf">—</span></div>
+      <div class="step-row"><span class="k">Angle factor, sinα + cosα</span><span class="v" id="s_angle">—</span></div>
+      <div class="step-row"><span class="k">Nominal shear from FRP, V<sub>f</sub></span><span class="v" id="s_Vf">—</span></div>
+    </div>
+
+    <div class="step-block">
+      <h3>Step 4 — design shear strength &amp; DCR</h3>
+      <div class="step-row"><span class="k">Strength reduction factor, φ</span><span class="v" id="s_phi">—</span></div>
+      <div class="step-row"><span class="k">Design shear strength, φV<sub>n</sub> = φ(V<sub>c</sub>+V<sub>s</sub>+ψ<sub>f</sub>·V<sub>f</sub>)</span><span class="v" id="s_phiVn">—</span></div>
+      <div class="step-row"><span class="k">Required shear strength, V<sub>u</sub></span><span class="v" id="s_Vu">—</span></div>
+      <div class="step-row"><span class="k">Design/capacity ratio, DCR = V<sub>u</sub> / φV<sub>n</sub></span><span class="v" id="s_dcr">—</span></div>
+    </div>
+
+    <div class="note">
+      <strong>Method note.</strong> V<sub>c</sub> and V<sub>s</sub> are computed using the full flexural effective depth, d = h − cover, per
+      standard ACI 318 practice. Only the CFRP contribution, V<sub>f</sub>, uses the reduced depth d<sub>fv</sub> based on the height actually
+      accessible to the wrap — this keeps the existing concrete and steel shear capacity from being understated when the
+      FRP can't reach the full beam depth (e.g. a slab bearing on top). For a Full Wrap, ε<sub>fe</sub> is taken directly as
+      min(0.75ε<sub>fu</sub>, 0.004) since fully anchored wraps aren't bond-critical; U-Wrap and two-side schemes use the
+      bond-dependent coefficient κ<sub>v</sub> (capped at 0.75) with k<sub>2</sub> based on one or two active bond lengths respectively.
+    </div>
+  </div>
+
+  <footer>CFRP BEAM SHEAR ANALYSIS · FOR PRELIMINARY / EDUCATIONAL USE · VERIFY AGAINST ACI 440.2R AND A LICENSED ENGINEER'S REVIEW BEFORE CONSTRUCTION<br>
+  For more inquiries, visit <a href="https://web.facebook.com/retrocreteph/?_rdc=1&_rdr#" target="_blank" rel="noopener noreferrer" style="color:var(--teal); text-decoration:none;">facebook.com/retrocreteph</a>
+  </footer>
+</div>
+
+<script>
+const CE_TABLE = {
+  interior:   { carbon:0.95, glass:0.75, aramid:0.85 },
+  exterior:   { carbon:0.85, glass:0.65, aramid:0.75 },
+  aggressive: { carbon:0.85, glass:0.50, aramid:0.70 }
+};
+
+// Manufacturer CFRP properties — sourced from Dropdown.xlsx (Type / Thickness / Ultimate
+// Tensile Strength / Rupture Strain / Modulus of Elasticity lookup table).
+const CFRP_PRODUCTS = {
+  'RETROWRAP - 200 GSM':  { tf:0.111, ffu:3400, efu:0.018, Ef:230000 },
+  'RETROWRAP - 300 GSM':  { tf:0.167, ffu:3400, efu:0.018, Ef:230000 },
+  'RETROWRAP - 600 GSM':  { tf:0.333, ffu:3400, efu:0.018, Ef:230000 },
+  'RETROPLATE - 200 GSM': { tf:0.111, ffu:4900, efu:0.019, Ef:240000 },
+  'RETROPLATE - 300 GSM': { tf:0.167, ffu:4900, efu:0.019, Ef:240000 },
+  'RETROPLATE - 600 GSM': { tf:0.333, ffu:4900, efu:0.019, Ef:240000 }
+};
+
+function applyCfrpProduct(){
+  const key = document.getElementById('cfrpProduct').value;
+  const fieldIds = ['tf','ffu','efu','Ef'];
+  const p = CFRP_PRODUCTS[key];
+  const targets = { tf:[p.tf,3], ffu:[p.ffu,0], efu:[p.efu,4], Ef:[p.Ef,0] };
+  fieldIds.forEach(id => {
+    const el = document.getElementById(id);
+    const fromVal = parseFloat(el.value);
+    const [toVal, decimals] = targets[id];
+    el.value = toVal;                 // real value — used immediately for calc
+    el.setAttribute('readonly','readonly');
+    animateInputDisplay(el, isFinite(fromVal) ? fromVal : toVal, toVal, decimals); // cosmetic count-up
+  });
+  runCalc();
+}
+
+function applyStripLayout(){
+  const layout = document.getElementById('stripLayout').value;
+  const gapEl = document.getElementById('gap');
+  if (layout === 'full'){
+    const fromVal = parseFloat(gapEl.value);
+    gapEl.value = 0;                  // real value — used immediately for calc
+    gapEl.setAttribute('readonly','readonly');
+    animateInputDisplay(gapEl, isFinite(fromVal) ? fromVal : 0, 0, 1); // cosmetic count-down
+  } else {
+    const wf = parseFloat(document.getElementById('wf').value);
+    const toVal = isFinite(wf) ? wf : 0;
+    const fromVal = parseFloat(gapEl.value);
+    gapEl.removeAttribute('readonly');
+    gapEl.value = toVal;              // real value — used immediately for calc
+    animateInputDisplay(gapEl, isFinite(fromVal) ? fromVal : toVal, toVal, 1); // cosmetic count-up
+  }
+  runCalc();
+}
+
+function num(id){ return parseFloat(document.getElementById(id).value); }
+function fmt(v, d=2){
+  if(!isFinite(v)) return '—';
+  return v.toLocaleString(undefined, {minimumFractionDigits:d, maximumFractionDigits:d});
+}
+
+/* ---------- smooth "Excel-like" number transitions ---------- */
+const _animState = {};
+function setAnimatedText(id, rawVal, decimals, suffix=''){
+  const el = document.getElementById(id);
+  if(!el) return;
+  if(typeof rawVal !== 'number' || !isFinite(rawVal)){
+    if(_animState[id]){ cancelAnimationFrame(_animState[id]); delete _animState[id]; }
+    el.textContent = (rawVal === null || rawVal === undefined) ? '—' : rawVal;
+    delete el.dataset.rawValue;
+    return;
+  }
+  const prevRaw = el.dataset.rawValue;
+  const prevVal = prevRaw !== undefined ? parseFloat(prevRaw) : NaN;
+  el.dataset.rawValue = rawVal;
+  if(!isFinite(prevVal) || Math.abs(prevVal - rawVal) < 1e-9){
+    el.textContent = fmt(rawVal, decimals) + suffix;
+    return;
+  }
+  if(_animState[id]) cancelAnimationFrame(_animState[id]);
+  const duration = 380, start = performance.now();
+  function step(now){
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = fmt(prevVal + (rawVal - prevVal) * eased, decimals) + suffix;
+    if (t < 1){ _animState[id] = requestAnimationFrame(step); }
+    else { el.textContent = fmt(rawVal, decimals) + suffix; delete _animState[id]; }
+  }
+  _animState[id] = requestAnimationFrame(step);
+}
+function animateInputDisplay(el, fromVal, toVal, decimals){
+  if(!el || !isFinite(fromVal) || Math.abs(fromVal - toVal) < 1e-9) return;
+  const id = el.id + '__input';
+  if(_animState[id]) cancelAnimationFrame(_animState[id]);
+  const duration = 380, start = performance.now();
+  function step(now){
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.value = (fromVal + (toVal - fromVal) * eased).toFixed(decimals);
+    if (t < 1){ _animState[id] = requestAnimationFrame(step); }
+    else { el.value = toVal; delete _animState[id]; }
+  }
+  _animState[id] = requestAnimationFrame(step);
+}
+
+/* ---------- draggable β (angle) handle on the elevation diagram ---------- */
+let angleVertexSvgPoint = null, angleArcRadius = 42, isDraggingAngle = false;
+function svgPointFromEvent(svg, evt){
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX; pt.y = evt.clientY;
+  const ctm = svg.getScreenCTM();
+  return ctm ? pt.matrixTransform(ctm.inverse()) : null;
+}
+function onAngleDragMove(evt){
+  if (!isDraggingAngle || !angleVertexSvgPoint) return;
+  const svg = document.getElementById('shearSvg');
+  const p = svgPointFromEvent(svg, evt);
+  if (!p) return;
+  const dx = p.x - angleVertexSvgPoint.x;
+  const dy = angleVertexSvgPoint.y - p.y;
+  let angleDeg = Math.atan2(dy, dx) * 180 / Math.PI;
+  angleDeg = Math.round(Math.max(30, Math.min(90, angleDeg)));
+  const betaInput = document.getElementById('betaDeg');
+  if (parseFloat(betaInput.value) !== angleDeg){
+    betaInput.value = angleDeg;
+    runCalc();
+  }
+}
+function onAngleDragEnd(){
+  isDraggingAngle = false;
+  const svg = document.getElementById('shearSvg');
+  if (svg) svg.style.cursor = '';
+  window.removeEventListener('pointermove', onAngleDragMove);
+  window.removeEventListener('pointerup', onAngleDragEnd);
+}
+
+function runCalc(){
+  const bw = num('bw'), h = num('h'), slabT = Math.max(0, num('slabT')), cover = num('cover'),
+        dbStirrup = num('dbStirrup'), nLegs = num('nLegs'), sStirrup = num('sStirrup'),
+        fc = num('fc'), fyv = num('fyv'), VuKN = num('VuKN'),
+        wrap = document.getElementById('wrap').value,
+        fiber = document.getElementById('fiber').value,
+        exposure = document.getElementById('exposure').value,
+        tf = num('tf'), ffuStar = num('ffu'), efuStar = num('efu'), Ef = num('Ef'),
+        plies = num('plies'), wf = num('wf'), gap = Math.max(0, num('gap')), betaDeg = num('betaDeg');
+
+  if ([bw,h,slabT,cover,dbStirrup,nLegs,sStirrup,fc,fyv,VuKN,tf,ffuStar,efuStar,Ef,plies,wf,betaDeg].some(v => !isFinite(v))) return;
+
+  const hAvail = Math.max(0, h - slabT);
+  document.getElementById('hAvail').value = hAvail.toFixed(0);
+
+  const d = h - cover;
+  const dfv = Math.min(hAvail, h) - cover;
+  const sf = wf + gap;
+
+  const Vc_N = 0.17*Math.sqrt(fc)*bw*d;
+  const Av = nLegs*0.25*Math.PI*dbStirrup*dbStirrup;
+  const Vs_N = Av*fyv*d/sStirrup;
+
+  const CE = CE_TABLE[exposure][fiber];
+  const ffuDesign = CE*ffuStar;
+  const efuDesign = CE*efuStar;
+
+  const psiF = wrap === 'full' ? 0.95 : 0.85;
+
+  let efe, k1=null, Le=null, k2=null, kv=null, governLabel;
+  if (wrap === 'full'){
+    efe = Math.min(0.004, 0.75*efuDesign);
+    governLabel = (0.75*efuDesign <= 0.004) ? 'rupture (0.75·εfu)' : 'strain cap (0.004)';
+  } else {
+    k1 = Math.pow(fc/27, 2/3);
+    Le = 23300/Math.pow(plies*tf*Ef, 0.58);
+    k2 = wrap === 'two-sides' ? (dfv - 2*Le)/dfv : (dfv - Le)/dfv;
+    k2 = Math.max(0, k2);
+    kv = (k1*k2*Le)/(11900*efuDesign);
+    kv = Math.min(Math.max(kv,0), 0.75);
+    efe = Math.min(kv*efuDesign, 0.004);
+    governLabel = (kv*efuDesign <= 0.004) ? 'bond (κv·εfu)' : 'strain cap (0.004)';
+  }
+
+  const ffe = Ef*efe;
+  const Af = 2*plies*tf*wf;
+  const betaRad = betaDeg*Math.PI/180;
+  const angleFactor = Math.sin(betaRad) + Math.cos(betaRad);
+  const Vf_N = Af*ffe*dfv*angleFactor/sf;
+
+  const phi = 0.75;
+  const phiVn_N = phi*(Vc_N + Vs_N + psiF*Vf_N);
+  const phiVn_kN = phiVn_N/1000;
+  const dcr = VuKN/phiVn_kN;
+
+  setAnimatedText('dcrValue', dcr, 2);
+  const dcrStatus = document.getElementById('dcrStatus');
+  const dcrBar = document.getElementById('dcrBar');
+  if (dcr <= 1){
+    dcrStatus.textContent = 'ADEQUATE';
+    dcrStatus.className = 'dcr-status ok';
+    dcrBar.style.background = 'var(--ok-deep)';
+  } else {
+    dcrStatus.textContent = 'INADEQUATE';
+    dcrStatus.className = 'dcr-status fail';
+    dcrBar.style.background = 'var(--danger-deep)';
+  }
+  dcrBar.style.width = Math.min(100, dcr*100) + '%';
+
+  setAnimatedText('outPhiVn', phiVn_kN, 1, ' kN');
+  setAnimatedText('outVreq', VuKN, 1, ' kN');
+  setAnimatedText('outVfShare', psiF*Vf_N/1000, 1, ' kN');
+  setAnimatedText('outOriginal', phi*(Vc_N+Vs_N)/1000, 1, ' kN');
+
+  setAnimatedText('s_d', d, 1, ' mm');
+  setAnimatedText('s_dfv', dfv, 1, ' mm');
+  setAnimatedText('s_Vc', Vc_N/1000, 1, ' kN');
+  setAnimatedText('s_Av', Av, 1, ' mm²');
+  setAnimatedText('s_Vs', Vs_N/1000, 1, ' kN');
+
+  setAnimatedText('s_CE', CE, 2);
+  setAnimatedText('s_ffu', ffuDesign, 1, ' MPa');
+  setAnimatedText('s_efu', efuDesign, 5);
+  setAnimatedText('s_psi', psiF, 2);
+  setAnimatedText('s_k1', k1===null ? 'n/a (full wrap)' : k1, 3);
+  setAnimatedText('s_Le', Le===null ? 'n/a (full wrap)' : Le, 2, ' mm');
+  setAnimatedText('s_k2', k2===null ? 'n/a (full wrap)' : k2, 4);
+  setAnimatedText('s_kv', kv===null ? 'n/a (full wrap)' : kv, 4);
+  setAnimatedText('s_efe', efe, 5);
+  setAnimatedText('s_ffe', ffe, 1, ' MPa');
+
+  setAnimatedText('s_Af', Af, 1, ' mm²');
+  setAnimatedText('s_sf', sf, 1, ' mm');
+  setAnimatedText('s_angle', angleFactor, 3);
+  setAnimatedText('s_Vf', Vf_N/1000, 1, ' kN');
+
+  setAnimatedText('s_phi', phi, 2);
+  setAnimatedText('s_phiVn', phiVn_kN, 2, ' kN');
+  setAnimatedText('s_Vu', VuKN, 2, ' kN');
+  setAnimatedText('s_dcr', dcr, 3);
+
+  document.getElementById('stepsWrap').style.display = 'block';
+  drawShearDiagram(bw, h, hAvail, cover, dbStirrup, sf, wf, gap, wrap, betaDeg);
+}
+
+function vDim(x, yA, yB, label, fontSize=12){
+  const tick=5;
+  const y1=Math.min(yA,yB), y2=Math.max(yA,yB);
+  const mid=(y1+y2)/2;
+  const charW=fontSize*0.62, textW=label.length*charW+6, textH=fontSize*1.2;
+  return `
+    <line x1="${(x-tick).toFixed(1)}" y1="${y1.toFixed(1)}" x2="${(x+tick).toFixed(1)}" y2="${y1.toFixed(1)}" stroke="#6e6e6a" stroke-width="1"/>
+    <line x1="${(x-tick).toFixed(1)}" y1="${y2.toFixed(1)}" x2="${(x+tick).toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#6e6e6a" stroke-width="1"/>
+    <line x1="${x.toFixed(1)}" y1="${y1.toFixed(1)}" x2="${x.toFixed(1)}" y2="${y2.toFixed(1)}" stroke="#6e6e6a" stroke-width="1"/>
+    <rect x="${(-textW/2).toFixed(1)}" y="${(-textH/2).toFixed(1)}" width="${textW.toFixed(1)}" height="${textH.toFixed(1)}" fill="#e9e3d0" transform="translate(${x.toFixed(1)} ${mid.toFixed(1)}) rotate(-90)"/>
+    <text x="0" y="0" font-size="${fontSize}" fill="#242423" font-family="IBM Plex Mono, monospace" text-anchor="middle" dominant-baseline="middle" transform="translate(${x.toFixed(1)} ${mid.toFixed(1)}) rotate(-90)">${label}</text>
+  `;
+}
+function hDim(xA, xB, y, label, fontSize=13){
+  const tick=5;
+  const x1=Math.min(xA,xB), x2=Math.max(xA,xB);
+  const mid=(x1+x2)/2;
+  const charW=fontSize*0.62, textW=label.length*charW+6, textH=fontSize*1.2;
+  return `
+    <line x1="${x1.toFixed(1)}" y1="${(y-tick).toFixed(1)}" x2="${x1.toFixed(1)}" y2="${(y+tick).toFixed(1)}" stroke="#6e6e6a" stroke-width="1"/>
+    <line x1="${x2.toFixed(1)}" y1="${(y-tick).toFixed(1)}" x2="${x2.toFixed(1)}" y2="${(y+tick).toFixed(1)}" stroke="#6e6e6a" stroke-width="1"/>
+    <line x1="${x1.toFixed(1)}" y1="${y.toFixed(1)}" x2="${x2.toFixed(1)}" y2="${y.toFixed(1)}" stroke="#6e6e6a" stroke-width="1"/>
+    <rect x="${(mid-textW/2).toFixed(1)}" y="${(y-textH/2).toFixed(1)}" width="${textW.toFixed(1)}" height="${textH.toFixed(1)}" fill="#e9e3d0"/>
+    <text x="${mid.toFixed(1)}" y="${y.toFixed(1)}" font-size="${fontSize}" fill="#242423" font-family="IBM Plex Mono, monospace" text-anchor="middle" dominant-baseline="middle">${label}</text>
+  `;
+}
+
+function drawShearDiagram(bw, h, hAvail, cover, dbStirrup, sf, wf, gap, wrap, betaDeg){
+  const svg = document.getElementById('shearSvg');
+  const hEff = Math.min(hAvail, h);
+  const d = h - cover;
+
+  // shared scale between cross-section (top) and elevation (bottom)
+  const crossMaxW = 260, crossMaxH = 340;
+  const elevMaxW = 760, elevMaxH = 300;
+  const nStrips = 3;
+  const endMargin = 130;
+  const contentLenMM = (nStrips-1)*sf + wf;   // span from left edge of first strip to right edge of last strip
+
+  // FRP strips lean per beta (angle from horizontal); reserve extra room on the
+  // right so the lean never runs off the canvas, regardless of scale.
+  const betaClamped = Math.max(30, Math.min(90, betaDeg));
+  const stripHmmApprox = Math.min(hAvail, h) - cover;
+  const leanMM = betaClamped >= 89.9 ? 0 : Math.max(0, stripHmmApprox) / Math.tan(betaClamped*Math.PI/180);
+
+  const elevLenMM = contentLenMM + 2*endMargin + leanMM;
+
+  const scale = Math.min(crossMaxW/bw, crossMaxH/h, elevMaxW/elevLenMM, elevMaxH/h);
+
+  const hatchH = (h - hEff)*scale;
+  const showRightDims = hatchH > 0.3;
+  const flangeOverhang = showRightDims ? 16 : 0;
+  const dimNearOffset = showRightDims ? 42 : 20;
+  const dimFarOffset = showRightDims ? 66 : 44;
+  const leftDimMargin = dimFarOffset + 18, rightDimMargin = showRightDims ? dimFarOffset + 18 : 16;
+
+  const crossW = bw*scale, crossH = h*scale;
+  const elevW = elevLenMM*scale, elevH = h*scale;
+  const suppW = 8;
+
+  const crossNeeded = leftDimMargin + crossW + rightDimMargin;
+  const elevNeeded = elevW + 2*suppW + 40;
+  const viewW = Math.max(crossNeeded, elevNeeded) + 40;
+
+  const padTop = 30;
+  const crossX0 = (viewW - crossW)/2;
+  const crossYTop = padTop;
+  const crossYBot = crossYTop + crossH;
+
+  const elevYTop = crossYBot + 78;   // room for the bw dimension line below cross-section + the wf/sf label above elevation
+  const elevYBot = elevYTop + elevH;
+  const elevX0 = (viewW - elevW)/2;
+
+  const viewH = elevYBot + 56;
+  svg.setAttribute('viewBox', `0 0 ${viewW.toFixed(1)} ${viewH.toFixed(1)}`);
+
+  function hatchDefs(id){
+    return `<pattern id="${id}" width="6" height="6" patternTransform="rotate(45)" patternUnits="userSpaceOnUse">
+      <rect width="6" height="6" fill="#e9e3d0"/>
+      <line x1="0" y1="0" x2="0" y2="6" stroke="#8a8a86" stroke-width="2"/>
+    </pattern>`;
+  }
+
+  // ---------- cross-section (top) ----------
+  let cross = `
+    <rect x="${crossX0.toFixed(1)}" y="${crossYTop.toFixed(1)}" width="${crossW.toFixed(1)}" height="${crossH.toFixed(1)}" fill="#c9c4b0" stroke="#242423" stroke-width="1.5"/>`;
+  if (hatchH > 0.3){
+    // slab flange — a short, wider strip sitting on the stem, representing a
+    // small (truncated) portion of the slab. A simple double-diagonal "cut"
+    // mark at each end is the standard engineering convention for a break.
+    const fx0 = crossX0 - flangeOverhang, fx1 = crossX0 + crossW + flangeOverhang;
+    const fy0 = crossYTop, fy1 = crossYTop + hatchH;
+    cross += `<rect x="${fx0.toFixed(1)}" y="${fy0.toFixed(1)}" width="${(fx1-fx0).toFixed(1)}" height="${hatchH.toFixed(1)}" fill="url(#hatchCross)" stroke="#242423" stroke-width="1.5"/>`;
+
+    const cutInset = Math.min(9, flangeOverhang + 5);
+    const cutGap = 3.5, cutSlant = hatchH*0.35;
+    const cutMark = (cx) => `
+      <line x1="${(cx-cutGap/2).toFixed(1)}" y1="${(fy1+1).toFixed(1)}" x2="${(cx-cutGap/2+cutSlant).toFixed(1)}" y2="${(fy0-1).toFixed(1)}" stroke="#242423" stroke-width="1.2"/>
+      <line x1="${(cx+cutGap/2).toFixed(1)}" y1="${(fy1+1).toFixed(1)}" x2="${(cx+cutGap/2+cutSlant).toFixed(1)}" y2="${(fy0-1).toFixed(1)}" stroke="#242423" stroke-width="1.2"/>`;
+    cross += cutMark(fx0 + cutInset);
+    cross += cutMark(fx1 - cutInset - cutSlant);
+  }
+  // stirrup outline (solid, 3 sides, inside face, representing existing steel)
+  const stX0 = crossX0 + cover*scale*0.6, stY0 = crossYTop + Math.max(hatchH, cover*scale*0.6);
+  const stW = crossW - 2*cover*scale*0.6, stH = (crossYTop+crossH) - stY0 - cover*scale*0.6;
+  const stX1 = stX0 + Math.max(0,stW), stYBot = stY0 + Math.max(0,stH);
+  cross += `<path d="M ${stX0.toFixed(1)} ${stY0.toFixed(1)} L ${stX0.toFixed(1)} ${stYBot.toFixed(1)} L ${stX1.toFixed(1)} ${stYBot.toFixed(1)} L ${stX1.toFixed(1)} ${stY0.toFixed(1)}" fill="none" stroke="#8a5a12" stroke-width="2.2" stroke-linejoin="round"/>`;
+
+  const wrapStroke = 4;
+  const wo = wrapStroke/2;
+  if (wrap === 'full'){
+    cross += `<rect x="${(crossX0-wo).toFixed(1)}" y="${(crossYTop-wo).toFixed(1)}" width="${(crossW+wrapStroke).toFixed(1)}" height="${(crossH+wrapStroke).toFixed(1)}" fill="none" stroke="#c9102e" stroke-width="${wrapStroke}"/>`;
+  } else if (wrap === 'two-sides'){
+    const yA = crossYTop + hatchH;
+    cross += `<line x1="${crossX0.toFixed(1)}" y1="${yA.toFixed(1)}" x2="${crossX0.toFixed(1)}" y2="${(crossYTop+crossH).toFixed(1)}" stroke="#c9102e" stroke-width="${wrapStroke}"/>`;
+    cross += `<line x1="${(crossX0+crossW).toFixed(1)}" y1="${yA.toFixed(1)}" x2="${(crossX0+crossW).toFixed(1)}" y2="${(crossYTop+crossH).toFixed(1)}" stroke="#c9102e" stroke-width="${wrapStroke}"/>`;
+  } else {
+    // U-wrap: both sides + bottom, open at top of the accessible zone
+    const yA = crossYTop + hatchH;
+    cross += `<path d="M ${crossX0.toFixed(1)} ${yA.toFixed(1)} L ${crossX0.toFixed(1)} ${(crossYTop+crossH).toFixed(1)} L ${(crossX0+crossW).toFixed(1)} ${(crossYTop+crossH).toFixed(1)} L ${(crossX0+crossW).toFixed(1)} ${yA.toFixed(1)}" fill="none" stroke="#c9102e" stroke-width="${wrapStroke}" stroke-linejoin="round"/>`;
+  }
+
+  // bw dimension (below the cross-section)
+  cross += hDim(crossX0, crossX0+crossW, crossYBot+22, `bw = ${bw.toFixed(0)}`);
+
+  // left-side dimensions: d (effective depth) nearer, h (total height) further out
+  cross += vDim(crossX0-dimNearOffset, crossYTop, crossYTop+d*scale, `d = ${d.toFixed(0)}`);
+  cross += vDim(crossX0-dimFarOffset, crossYTop, crossYBot, `h = ${h.toFixed(0)}`);
+
+  // right-side dimensions: slab thickness nearer, available height further out — only when a slab/inaccessible zone exists
+  if (showRightDims){
+    cross += vDim(crossX0+crossW+dimNearOffset, crossYTop, crossYTop+hatchH, `t(slab) = ${(h-hEff).toFixed(0)}`);
+    cross += vDim(crossX0+crossW+dimFarOffset, crossYTop+hatchH, crossYBot, `h(avail) = ${hEff.toFixed(0)}`);
+  }
+
+  // ---------- elevation (bottom) ----------
+  let elev = `
+    <rect x="${elevX0.toFixed(1)}" y="${elevYTop.toFixed(1)}" width="${elevW.toFixed(1)}" height="${elevH.toFixed(1)}" fill="#c9c4b0" stroke="#242423" stroke-width="1.5"/>`;
+  if (hatchH > 0.3){
+    elev += `<rect x="${elevX0.toFixed(1)}" y="${elevYTop.toFixed(1)}" width="${elevW.toFixed(1)}" height="${hatchH.toFixed(1)}" fill="url(#hatchElev)"/>
+    <line x1="${elevX0.toFixed(1)}" y1="${(elevYTop+hatchH).toFixed(1)}" x2="${(elevX0+elevW).toFixed(1)}" y2="${(elevYTop+hatchH).toFixed(1)}" stroke="#242423" stroke-width="1" stroke-dasharray="3 2"/>`;
+  }
+
+  // supports (end columns), like the reference photo
+  elev += `<rect x="${(elevX0-suppW).toFixed(1)}" y="${(elevYTop-6).toFixed(1)}" width="${suppW}" height="${(elevH+12).toFixed(1)}" fill="#1a1a1a"/>`;
+  elev += `<rect x="${(elevX0+elevW).toFixed(1)}" y="${(elevYTop-6).toFixed(1)}" width="${suppW}" height="${(elevH+12).toFixed(1)}" fill="#1a1a1a"/>`;
+
+  // FRP strips — drawn leaning at beta (angle from horizontal), matching the
+  // reference detail. At beta = 90 they're plain vertical strips (lean = 0).
+  const stripTop = wrap === 'full' ? elevYTop : elevYTop + hatchH;
+  const stripH = (elevYTop+elevH) - stripTop;
+  const shiftPx = leanMM * scale;
+
+  let stripX = elevX0 + endMargin*scale;
+  const stripXs = [];
+  for (let i=0;i<nStrips;i++){
+    stripXs.push(stripX);
+    const xBL = stripX, xBR = stripX + wf*scale;
+    const xTL = xBL + shiftPx, xTR = xBR + shiftPx;
+    const yBot = stripTop + stripH;
+    elev += `<path d="M ${xBL.toFixed(1)} ${yBot.toFixed(1)} L ${xBR.toFixed(1)} ${yBot.toFixed(1)} L ${xTR.toFixed(1)} ${stripTop.toFixed(1)} L ${xTL.toFixed(1)} ${stripTop.toFixed(1)} Z" fill="#c9102e" fill-opacity="0.88" stroke="#7c1322" stroke-width="0.75"/>`;
+    stripX += sf*scale;
+  }
+
+  // interactive angle indicator — anchored at the bottom-right corner of the
+  // middle strip, arc sweeps from the horizontal up to the strip's edge.
+  {
+    const vx = stripXs[1] + wf*scale;
+    const vy = stripTop + stripH;
+    const r = angleArcRadius;
+    const betaRad = betaClamped*Math.PI/180;
+    const arcPoint = (angDeg) => {
+      const a = angDeg*Math.PI/180;
+      return { x: vx + r*Math.cos(a), y: vy - r*Math.sin(a) };
+    };
+    elev += `<line x1="${vx.toFixed(1)}" y1="${vy.toFixed(1)}" x2="${(vx+r*1.4).toFixed(1)}" y2="${vy.toFixed(1)}" stroke="#6e6e6a" stroke-width="1" stroke-dasharray="3 2"/>`;
+    const steps = Math.max(10, Math.round(betaClamped/4));
+    let arcD = '';
+    for (let i=0;i<=steps;i++){
+      const p = arcPoint(betaClamped*i/steps);
+      arcD += (i===0?'M':'L') + ` ${p.x.toFixed(1)} ${p.y.toFixed(1)} `;
+    }
+    elev += `<path d="${arcD.trim()}" fill="none" stroke="#242423" stroke-width="1.4"/>`;
+    const labelAng = betaClamped/2*Math.PI/180;
+    elev += `<text x="${(vx+(r+17)*Math.cos(labelAng)).toFixed(1)}" y="${(vy-(r+17)*Math.sin(labelAng)+4).toFixed(1)}" font-size="15" fill="#242423" font-family="Space Grotesk, sans-serif" font-weight="600" text-anchor="middle">β</text>`;
+    const hp = arcPoint(betaClamped);
+    elev += `<circle id="angleHandle" cx="${hp.x.toFixed(1)}" cy="${hp.y.toFixed(1)}" r="7.5" fill="#ffffff" stroke="#c9102e" stroke-width="2.5" style="cursor:grab; touch-action:none;"><title>Drag to set β — angle of FRP from horizontal</title></circle>`;
+    angleVertexSvgPoint = { x: vx, y: vy };
+  }
+
+  // gap dimension between strip 1 and strip 2
+  if (stripXs.length >= 2){
+    const g0 = stripXs[0] + wf*scale;
+    const g1 = stripXs[1];
+    const dimY = elevYTop + elevH + 26;
+    if (gap > 0.5){
+      elev += `<line x1="${g0.toFixed(1)}" y1="${dimY.toFixed(1)}" x2="${g1.toFixed(1)}" y2="${dimY.toFixed(1)}" stroke="#6e6e6a" stroke-width="1"/>`;
+      elev += `<line x1="${g0.toFixed(1)}" y1="${(dimY-4).toFixed(1)}" x2="${g0.toFixed(1)}" y2="${(dimY+4).toFixed(1)}" stroke="#6e6e6a" stroke-width="1"/>`;
+      elev += `<line x1="${g1.toFixed(1)}" y1="${(dimY-4).toFixed(1)}" x2="${g1.toFixed(1)}" y2="${(dimY+4).toFixed(1)}" stroke="#6e6e6a" stroke-width="1"/>`;
+      elev += `<text x="${((g0+g1)/2).toFixed(1)}" y="${(dimY+16).toFixed(1)}" font-size="13" fill="#242423" font-family="IBM Plex Mono, monospace" text-anchor="middle">sf − wf = ${gap.toFixed(0)} mm</text>`;
+    } else {
+      elev += `<text x="${((g0+g1)/2).toFixed(1)}" y="${(dimY+16).toFixed(1)}" font-size="13" fill="#242423" font-family="IBM Plex Mono, monospace" text-anchor="middle">continuous wrap</text>`;
+    }
+  }
+  elev += `<text x="${(elevX0+elevW/2).toFixed(1)}" y="${(elevYTop-16).toFixed(1)}" font-size="13" fill="#242423" font-family="IBM Plex Mono, monospace" text-anchor="middle">wf = ${wf.toFixed(0)} mm · sf = ${sf.toFixed(0)} mm c/c</text>`;
+
+  svg.innerHTML = `<defs>${hatchDefs('hatchCross')}${hatchDefs('hatchElev')}</defs>${cross}${elev}`;
+
+  const wrapNames = {uwrap:'U-wrap (3-side)', full:'full wrap', 'two-sides':'two sides bonded'};
+  document.getElementById('diagCaption').textContent = `Cross-section and elevation, drawn to scale — ${wrapNames[wrap]}. β = ${betaDeg.toFixed(0)}° from horizontal — drag the marker to adjust.`;
+}
+
+document.getElementById('shearSvg').addEventListener('pointerdown', function(e){
+  const target = e.target.closest ? e.target.closest('#angleHandle') : null;
+  if (!target) return;
+  e.preventDefault();
+  isDraggingAngle = true;
+  this.style.cursor = 'grabbing';
+  window.addEventListener('pointermove', onAngleDragMove);
+  window.addEventListener('pointerup', onAngleDragEnd);
+});
+
+applyStripLayout();
+applyCfrpProduct();
+</script>
+</body>
+</html>

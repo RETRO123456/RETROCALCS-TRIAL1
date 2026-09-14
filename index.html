@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RETROCALCS — CFRP Strengthening Calculation Suite</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1a1a1a;
+    --ink-soft:#5a5a58;
+    --paper:#f2f1ee;
+    --paper-line:#d6d5d0;
+    --blueprint:#0b0b0c;
+    --blueprint-2:#161616;
+    --teal:#e0203a;
+    --teal-deep:#7c1322;
+    --amber:#d8912f;
+    --ok:#3fa85c;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background-color:#08080a;
+    background-image:
+      linear-gradient(rgba(6,6,7,0.82), rgba(6,6,7,0.82)),
+      url("/assets/cfrp-background.jpg");
+    background-repeat: repeat, repeat;
+    background-size: auto, 420px 420px;
+    background-attachment: fixed, fixed;
+    color:var(--paper);
+    font-family:'IBM Plex Sans', sans-serif;
+    min-height:100vh;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:56px 20px 60px; position:relative; z-index:1;}
+
+  /* faint animated red flow + periodic gleam sweep, sits behind all content */
+  .bg-flow{position:fixed; inset:0; pointer-events:none; z-index:0; overflow:hidden;}
+  .bg-flow::before{
+    content:''; position:absolute; top:-50%; left:-50%; width:200%; height:200%;
+    background:
+      radial-gradient(circle at 28% 36%, rgba(224,32,58,0.16), transparent 58%),
+      radial-gradient(circle at 72% 64%, rgba(224,32,58,0.11), transparent 55%);
+    filter:blur(50px);
+    animation: flowPulse 11s ease-in-out infinite;
+  }
+  .bg-flow::after{
+    content:''; position:absolute; top:-20%; left:-60%; width:38%; height:140%;
+    background:linear-gradient(75deg,
+      transparent 0%, rgba(224,32,58,0.09) 45%,
+      rgba(255,92,112,0.20) 50%, rgba(224,32,58,0.09) 55%, transparent 100%);
+    filter:blur(8px);
+    animation: gleamSweep 7s ease-in-out infinite;
+  }
+  @keyframes flowPulse{
+    0%,100%{ transform:translate(-4%,-3%) scale(1); opacity:0.55; }
+    50%    { transform:translate(4%,3%) scale(1.15); opacity:1; }
+  }
+  @keyframes gleamSweep{
+    0%, 30%  { left:-60%; }
+    62%      { left:135%; }
+    100%     { left:135%; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .bg-flow::before, .bg-flow::after{ animation:none; }
+  }
+
+  header.hero{
+    display:flex; flex-direction:column; align-items:center; text-align:center;
+    padding-bottom:36px; margin-bottom:44px; border-bottom:2px solid var(--teal);
+  }
+  header.hero img{width:88px; height:88px; margin-bottom:18px;}
+  header.hero .kicker{
+    font-family:'IBM Plex Mono', monospace; font-size:11.5px; letter-spacing:0.14em;
+    color:var(--teal); text-transform:uppercase; margin-bottom:10px;
+  }
+  header.hero h1{
+    font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:44px;
+    margin:0 0 10px; letter-spacing:1.2px; text-transform:uppercase; color:#ffffff;
+  }
+  header.hero .subtitle{
+    font-family:'IBM Plex Mono', monospace; font-weight:500; font-size:13px;
+    letter-spacing:0.12em; text-transform:uppercase; color:var(--teal);
+    margin:0 0 16px;
+  }
+  header.hero p{
+    margin:0; color:#a8a8a4; font-size:14.5px; max-width:560px; line-height:1.6;
+  }
+  .meta-row{
+    display:flex; gap:22px; justify-content:center; margin-top:20px;
+    font-family:'IBM Plex Mono', monospace; font-size:11px; color:#8f8f8b;
+    flex-wrap:wrap;
+  }
+  .meta-row span{color:var(--teal); font-weight:600;}
+
+  .section-label{
+    font-size:11px; text-transform:uppercase; letter-spacing:0.1em; color:#8f8f8b;
+    font-family:'IBM Plex Mono', monospace; text-align:center; margin-bottom:22px;
+  }
+
+  .card-grid{
+    display:grid; grid-template-columns:1fr 1fr; gap:18px;
+  }
+  @media(max-width:720px){ .card-grid{grid-template-columns:1fr;} }
+
+  .calc-card{
+    background:var(--blueprint-2); border:1px solid #2a2a2a; border-radius:8px;
+    padding:26px 28px; text-decoration:none; color:inherit; display:block;
+    position:relative; transition:border-color 0.15s ease, transform 0.15s ease, background 0.15s ease;
+  }
+  .calc-card:hover{
+    border-color:var(--teal); transform:translateY(-2px);
+    background:#1c1c1c;
+  }
+  .calc-card .idx{
+    font-family:'IBM Plex Mono', monospace; font-size:11px; color:var(--teal);
+    letter-spacing:0.08em; margin-bottom:12px; display:block;
+  }
+  .calc-card h2{
+    font-family:'Space Grotesk', sans-serif; font-weight:600; font-size:19px;
+    margin:0 0 10px; color:#f4f3f0; letter-spacing:0.3px; text-transform:uppercase;
+  }
+  .calc-card p{
+    font-size:12.5px; color:#a8a8a4; line-height:1.6; margin:0 0 18px;
+  }
+  .tag-row{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+  .tag{
+    display:inline-block; font-size:10.5px; font-family:'IBM Plex Mono', monospace;
+    padding:3px 9px; border-radius:3px; letter-spacing:0.04em;
+    background:#0e0e0e; border:1px solid #2f2f2d; color:#9a9a96;
+  }
+  .tag.method{color:var(--teal); border-color:var(--teal-deep);}
+  .go-arrow{
+    position:absolute; top:26px; right:26px; font-size:16px; color:#5a5a58;
+    transition:color 0.15s ease, transform 0.15s ease;
+  }
+  .calc-card:hover .go-arrow{ color:var(--teal); transform:translateX(3px); }
+
+  footer{
+    text-align:center; color:#6e6e6a; font-size:11px; margin-top:52px;
+    font-family:'IBM Plex Mono', monospace; line-height:2;
+  }
+</style>
+</head>
+<body>
+<div class="bg-flow"></div>
+<div class="wrap">
+
+  <header class="hero">
+    <img src="/assets/retrocrete-logo.jpg" alt="RetroCrete logo">
+    <div class="kicker">RetroCrete Engineering Solutions</div>
+    <h1>RetroCalcs</h1>
+    <div class="subtitle">CFRP Strengthening Calculation Suite</div>
+    <p>Design and verification tools for externally bonded FRP strengthening of reinforced-concrete members, built around the ACI 440.2R strain-compatibility method. Select a member and failure mode to begin.</p>
+    <div class="meta-row">
+      METHOD <span>ACI 440.2R</span>
+      SYSTEM <span>EXTERNALLY BONDED FRP</span>
+      MODE <span>ANALYSIS</span>
+    </div>
+  </header>
+
+  <div class="section-label">Select a calculation</div>
+
+  <div class="card-grid">
+    <a class="calc-card" id="card-beam-flexure" href="/calculators/beam-flexure.html">
+      <span class="go-arrow">→</span>
+      <span class="idx">01 / MEMBER — BEAM</span>
+      <h2>Beam Flexure Strengthening</h2>
+      <p>Design flexural capacity of a reinforced-concrete beam strengthened with soffit-bonded CFRP laminate, including the existing-capacity eligibility check.</p>
+      <div class="tag-row">
+        <span class="tag method">ACI 440.2R</span>
+        <span class="tag">Flexure</span>
+        <span class="tag">RC Beam</span>
+      </div>
+    </a>
+
+    <a class="calc-card" id="card-beam-shear" href="/calculators/beam-shear.html">
+      <span class="go-arrow">→</span>
+      <span class="idx">02 / MEMBER — BEAM</span>
+      <h2>Beam Shear Strengthening</h2>
+      <p>Design shear capacity of a reinforced-concrete beam strengthened with CFRP U-wrap, full-wrap, or side-bonded strips.</p>
+      <div class="tag-row">
+        <span class="tag method">ACI 440.2R</span>
+        <span class="tag">Shear</span>
+        <span class="tag">RC Beam</span>
+      </div>
+    </a>
+
+    <a class="calc-card" id="card-slab-flexure" href="/calculators/slab-flexure.html">
+      <span class="go-arrow">→</span>
+      <span class="idx">03 / MEMBER — SLAB</span>
+      <h2>Slab Flexure Strengthening</h2>
+      <p>Design flexural capacity of a one-way slab strip strengthened with CFRP laminate, with support for both positive and negative moment regions.</p>
+      <div class="tag-row">
+        <span class="tag method">ACI 440.2R</span>
+        <span class="tag">Flexure</span>
+        <span class="tag">One-Way Slab</span>
+      </div>
+    </a>
+
+    <a class="calc-card" id="card-column-axial" href="/calculators/column-axial-bending.html">
+      <span class="go-arrow">→</span>
+      <span class="idx">04 / MEMBER — COLUMN</span>
+      <h2>Column Axial &amp; Bending Strengthening</h2>
+      <p>Design axial and combined axial-flexural capacity of a concrete column strengthened with an FRP confinement jacket.</p>
+      <div class="tag-row">
+        <span class="tag method">ACI 440.2R</span>
+        <span class="tag">Axial + Bending</span>
+        <span class="tag">Column</span>
+      </div>
+    </a>
+  </div>
+
+  <footer>CFRP STRENGTHENING DESIGN SUITE · FOR PRELIMINARY / EDUCATIONAL USE · VERIFY AGAINST ACI 440.2R AND A LICENSED ENGINEER'S REVIEW BEFORE CONSTRUCTION<br>
+  For more inquiries, visit <a href="https://web.facebook.com/retrocreteph/?_rdc=1&_rdr#" target="_blank" rel="noopener noreferrer" style="color:var(--teal); text-decoration:none;">facebook.com/retrocreteph</a>
+  </footer>
+</div>
+</body>
+</html>

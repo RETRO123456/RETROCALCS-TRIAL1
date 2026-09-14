@@ -1,0 +1,697 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RetroCrete FC — CFRP Beam Flexural Analysis</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/assets/style.css">
+<style>
+  .result-panel .label{font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color:var(--ink-soft); font-family:'IBM Plex Mono',monospace;}
+  .result-panel{
+    background:var(--paper); color:var(--ink); border-radius:6px; padding:18px 20px;
+    margin-bottom:16px; border:1px solid var(--paper-line);
+  }
+  .elig-row .k{color:var(--ink-soft);}
+  .elig-row .v{font-family:'IBM Plex Mono',monospace; font-weight:600;}
+  .elig-row{display:flex; justify-content:space-between; padding:3px 0; font-size:12.5px;}
+  .panel-divider{border-top:1px dashed var(--paper-line); margin:12px 0;}
+  .flag.ok{background:rgba(63,138,90,0.15); color:var(--ok-deep);}
+  .flag.fail{background:rgba(194,75,63,0.15); color:var(--danger-deep);}
+  .flag.mode-pos{background:rgba(63,168,92,0.15); color:var(--ok);}
+  .flag.mode-neg{background:rgba(216,145,47,0.15); color:var(--amber);}
+
+  sub{font-size:0.74em;}
+  sup{font-size:0.68em;}
+</style>
+</head>
+<body>
+<script src="/assets/nav.js"></script>
+<div class="wrap">
+
+  <header class="title-block">
+    <div style="display:flex; align-items:flex-start; gap:16px;">
+      <div class="brand-mark"><img src="/assets/retrocrete-logo.jpg" alt="RetroCrete FC logo"></div>
+      <div>
+        <h1>CFRP beam flexural strengthening — analysis</h1>
+        <p>Checks the design flexural capacity of a reinforced-concrete beam strengthened with externally bonded CFRP laminate, per the ACI 440.2R strain-compatibility method, plus the existing-capacity eligibility check.</p>
+      </div>
+    </div>
+    <div class="meta">
+      METHOD <span>ACI 440.2R</span><br>
+      MEMBER <span>RC BEAM</span><br>
+      MODE <span>ANALYSIS</span>
+    </div>
+  </header>
+
+  <div class="grid-3col">
+    <!-- INPUT: COLUMN 1 -->
+    <div class="card">
+      <h2>Beam &amp; reinforcement</h2>
+      <p class="sub">Discrete section — bar count entered directly, not spacing-based.</p>
+
+      <div class="row"><label>Beam width, b<sub>w</sub></label><input type="number" id="bw" value="300" step="25" oninput="runCalc()"><span class="unit">mm</span></div>
+      <div class="row"><label>Beam depth, h</label><input type="number" id="h" value="500" step="25" oninput="runCalc()"><span class="unit">mm</span></div>
+      <div class="row"><label>Clear cover, c<sub>c</sub></label><input type="number" id="cc" value="40" oninput="runCalc()"><span class="unit">mm</span></div>
+      <div class="row"><label>Main bar diameter, Ø<sub>main</sub></label><input type="number" id="barDia" value="20" oninput="runCalc()"><span class="unit">mm</span></div>
+      <div class="row"><label>Number of main bars</label><input type="number" id="barPcs" min="1" step="1" value="4" oninput="runCalc()"><span class="unit">pcs</span></div>
+      <div class="row"><label>Stirrup diameter, Ø<sub>stirrup</sub></label><input type="number" id="stirDia" value="10" oninput="runCalc()"><span class="unit">mm</span></div>
+      <div class="row"><label>Concrete strength, f'<sub>c</sub></label><input type="number" id="fc" value="28" oninput="runCalc()"><span class="unit">MPa</span></div>
+      <div class="row"><label>Steel yield strength, f<sub>y</sub></label><input type="number" id="fy" value="420" oninput="runCalc()"><span class="unit">MPa</span></div>
+      <div class="row"><label>Steel modulus, E<sub>s</sub></label><input type="number" id="Es" value="200000" oninput="runCalc()"><span class="unit">MPa</span></div>
+
+      <div class="section-title">Existing &amp; required moments</div>
+      <div class="row"><label>Anticipated service dead load, M<sub>DL</sub></label><input type="number" id="mDL" value="100" oninput="runCalc()"><span class="unit">kN·m</span></div>
+      <div class="row"><label>Anticipated service live load, M<sub>LL</sub></label><input type="number" id="mLL" value="100" oninput="runCalc()"><span class="unit">kN·m</span></div>
+      <div class="row" style="grid-template-columns:1fr 108px;"><label>Live load sustained long-term?</label>
+        <select id="llSustained" onchange="runCalc()">
+          <option value="NO" selected>No</option>
+          <option value="YES">Yes</option>
+        </select>
+      </div>
+      <div class="row"><label>Expected / desired flexural strength, M<sub>u</sub></label><input type="number" id="mReq" value="240" oninput="runCalc()"><span class="unit">kN·m</span></div>
+      <div style="margin-top:8px;"><span class="flag mode-pos" id="modeBadge">POSITIVE MOMENT · BOTTOM BARS GOVERN</span></div>
+
+      <div class="section-title">Top reinforcement <span class="note-inline">— used when M<sub>u</sub> is negative</span></div>
+      <p class="sub" style="margin-top:-6px;">Tension steel switches to these bars for hogging. Effective depth is then measured from the soffit to the centroid of the top bars.</p>
+      <div class="row"><label>Top bar diameter, Ø<sub>main,top</sub></label><input type="number" id="barDiaTop" value="20" oninput="runCalc()"><span class="unit">mm</span></div>
+      <div class="row"><label>Number of top bars</label><input type="number" id="barPcsTop" min="1" step="1" value="4" oninput="runCalc()"><span class="unit">pcs</span></div>
+      <div class="row"><label>Top clear cover, c<sub>c,top</sub></label><input type="number" id="ccTop" value="40" oninput="runCalc()"><span class="unit">mm</span></div>
+    </div>
+
+    <!-- INPUT: COLUMN 2 -->
+    <div class="card">
+      <h2>CFRP system</h2>
+      <p class="sub">Manufacturer-reported (uncorrected) properties.</p>
+
+      <div class="two-col">
+        <div class="row" style="grid-template-columns:1fr;"><label>Fiber type</label></div>
+        <div class="row" style="grid-template-columns:1fr;"><label>Exposure condition</label></div>
+      </div>
+      <div class="two-col">
+        <select id="fiber" onchange="runCalc()">
+          <option value="carbon" selected>Carbon</option>
+          <option value="glass">Glass</option>
+          <option value="aramid">Aramid</option>
+        </select>
+        <select id="exposure" onchange="runCalc()">
+          <option value="interior" selected>Interior</option>
+          <option value="exterior">Exterior</option>
+          <option value="aggressive">Aggressive</option>
+        </select>
+      </div>
+
+      <div class="section-title" style="margin-top:12px;">Product selection</div>
+      <div class="row" style="grid-template-columns:1fr;"><label>CFRP product</label></div>
+      <select id="cfrpProduct" onchange="applyCfrpProduct()" style="margin-bottom:10px;">
+        <option value="RETROWRAP - 200 GSM">RETROWRAP — 200 GSM</option>
+        <option value="RETROWRAP - 300 GSM">RETROWRAP — 300 GSM</option>
+        <option value="RETROWRAP - 600 GSM" selected>RETROWRAP — 600 GSM</option>
+        <option value="RETROPLATE - 200 GSM">RETROPLATE — 200 GSM</option>
+        <option value="RETROPLATE - 300 GSM">RETROPLATE — 300 GSM</option>
+        <option value="RETROPLATE - 600 GSM">RETROPLATE — 600 GSM</option>
+      </select>
+
+      <div class="section-title">Ply properties</div>
+      <div class="row"><label>Thickness per ply, t<sub>f</sub></label><input type="number" step="0.001" id="tf" value="1" readonly oninput="runCalc()"><span class="unit">mm</span></div>
+      <div class="row"><label>Ultimate tensile strength, f*<sub>fu</sub></label><input type="number" id="ffu" value="1314" readonly oninput="runCalc()"><span class="unit">MPa</span></div>
+      <div class="row"><label>Rupture strain, ε*<sub>fu</sub></label><input type="number" step="0.0001" id="efu" value="0.018" readonly oninput="runCalc()"><span class="unit">mm/mm</span></div>
+      <div class="row"><label>Modulus of elasticity, E<sub>f</sub></label><input type="number" id="Ef" value="73000" readonly oninput="runCalc()"><span class="unit">MPa</span></div>
+      <div class="row"><label>Number of plies, N</label><input type="number" id="plies" min="1" step="1" value="1" oninput="runCalc()"><span class="unit">pcs</span></div>
+      <div class="row"><label>Width of applied ply, w<sub>f</sub></label><input type="number" id="widthPly" value="300" max="300" oninput="runCalc()"><span class="unit">mm</span></div>
+      <p class="sub" style="margin-top:-3px;">Capped at the beam width, b<sub>w</sub>.</p>
+
+      <div class="live-note" style="margin-top:16px;"><span class="live-dot"></span>Recalculates live as you type.</div>
+    </div>
+
+    <!-- RESULTS: COLUMN 3 -->
+    <div class="results-col">
+      <div class="result-panel">
+        <div class="label">Eligibility to strengthen <span class="flag" id="eligFlag">—</span></div>
+        <div class="elig-row"><span class="k">Existing capacity, ϕM<sub>n0</sub></span><span class="v" id="eligPhiMn0">—</span></div>
+        <div class="elig-row"><span class="k">Unstrengthened limit (ACI 440.2R §9.2)</span><span class="v" id="eligLimit">—</span></div>
+
+        <div class="panel-divider"></div>
+
+        <div class="label">Design / capacity ratio</div>
+        <div class="dcr-value" id="dcrValue">—</div>
+        <span class="dcr-status" id="dcrStatus">RUN ANALYSIS</span>
+        <div class="dcr-bar-track"><div class="dcr-bar-fill" id="dcrBar" style="width:0%; background:var(--teal-deep);"></div></div>
+        <div class="dcr-sub">
+          <div><span class="k">Design moment, ϕM<sub>n</sub></span><span class="v" id="outPhiMn">—</span></div>
+          <div><span class="k">Required moment, M<sub>u</sub></span><span class="v" id="outMreq">—</span></div>
+          <div><span class="k">Strength reduction, ϕ</span><span class="v" id="outPhi">—</span></div>
+          <div><span class="k">FRP contribution</span><span class="v" id="outFrpShare">—</span></div>
+        </div>
+      </div>
+
+      <div class="section-diagram">
+        <svg id="sectionSvg" viewBox="0 0 320 260"></svg>
+        <div class="diag-caption" id="diagCaption">Cross-section, drawn to the input dimensions.</div>
+        <div class="diag-legend">
+          <span><span class="swatch" style="background:#8a5a12;"></span>Main bars</span>
+          <span><span class="swatch" style="background:none; border:1.4px dashed #444;"></span>Stirrup</span>
+          <span><span class="swatch" style="background:#c9102e;"></span>CFRP laminate</span>
+          <span><span class="swatch" style="background:#1a1a1a;"></span>Neutral axis, c</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="steps" id="stepsWrap" style="display:none;">
+    <h2>Calculation trail</h2>
+
+    <div class="step-block">
+      <h3>Step 1 — section properties &amp; existing (unstrengthened) capacity</h3>
+      <div class="step-row"><span class="k" id="s_d_label">Effective depth, d = h − c<sub>c</sub> − Ø<sub>stirrup</sub> − Ø<sub>main</sub>/2</span><span class="v" id="s_d">—</span></div>
+      <div class="step-row"><span class="k" id="s_As_label">Area of steel, A<sub>s</sub> = 0.25π·n·d<sub>b</sub>²</span><span class="v" id="s_As">—</span></div>
+      <div class="step-row"><span class="k">Concrete modulus, E<sub>c</sub> = 4700√f'<sub>c</sub></span><span class="v" id="s_Ec">—</span></div>
+      <div class="step-row"><span class="k">Modular ratio, n<sub>s</sub> = E<sub>s</sub>/E<sub>c</sub></span><span class="v" id="s_n">—</span></div>
+      <div class="step-row"><span class="k">Existing depth of stress block, a = A<sub>s</sub>f<sub>y</sub> / 0.85f'<sub>c</sub>b<sub>w</sub></span><span class="v" id="s_a0">—</span></div>
+      <div class="step-row"><span class="k">Existing neutral axis, c<sub>0</sub> = a/β<sub>1</sub></span><span class="v" id="s_c0">—</span></div>
+      <div class="step-row"><span class="k">Existing strain reduction factor, ϕ<sub>0</sub></span><span class="v" id="s_phi0">—</span></div>
+      <div class="step-row"><span class="k">Existing nominal moment, M<sub>n0</sub></span><span class="v" id="s_Mn0">—</span></div>
+      <div class="step-row"><span class="k">Existing design moment, ϕM<sub>n0</sub> <span class="flag gov" id="s_eligFlag2">—</span></span><span class="v" id="s_phiMn0">—</span></div>
+      <div class="step-row"><span class="k">Unstrengthened limit = 1.1M<sub>DL</sub> + (0.75 or 1.0)·M<sub>LL</sub></span><span class="v" id="s_uLimit">—</span></div>
+    </div>
+
+    <div class="step-block">
+      <h3>Step 2 — CFRP design properties</h3>
+      <div class="step-row"><span class="k">Environmental reduction factor, C<sub>E</sub></span><span class="v" id="s_CE">—</span></div>
+      <div class="step-row"><span class="k">Design tensile strength, f<sub>fu</sub> = C<sub>E</sub>·f*<sub>fu</sub></span><span class="v" id="s_ffu">—</span></div>
+      <div class="step-row"><span class="k">Design rupture strain, ε<sub>fu</sub> = C<sub>E</sub>·ε*<sub>fu</sub></span><span class="v" id="s_efu">—</span></div>
+      <div class="step-row"><span class="k">Area of CFRP, A<sub>f</sub> = N·t<sub>f</sub>·w<sub>f</sub></span><span class="v" id="s_Af">—</span></div>
+      <div class="step-row"><span class="k">Debonding strain, ε<sub>fd</sub> (uncapped)</span><span class="v" id="s_efdRaw">—</span></div>
+      <div class="step-row"><span class="k">Governing strain limit, ε<sub>fd</sub> = min(ε<sub>fd</sub>, 0.9ε<sub>fu</sub>) <span class="flag gov" id="s_efdGov">—</span></span><span class="v" id="s_efd">—</span></div>
+    </div>
+
+    <div class="step-block">
+      <h3>Step 3 — existing strain at soffit</h3>
+      <div class="step-row"><span class="k">Elastic cracked neutral axis, kd</span><span class="v" id="s_kd">—</span></div>
+      <div class="step-row"><span class="k">Cracked moment of inertia, I<sub>cr</sub></span><span class="v" id="s_Icr">—</span></div>
+      <div class="step-row"><span class="k">Initial strain at soffit, ε<sub>bi</sub></span><span class="v" id="s_ebi">—</span></div>
+    </div>
+
+    <div class="step-block">
+      <h3>Step 4 — strain compatibility &amp; force equilibrium, solved for c</h3>
+      <div class="step-row"><span class="k">Depth to neutral axis, c (converged)</span><span class="v" id="s_c">—</span></div>
+      <div class="step-row"><span class="k">Effective strain in CFRP, ε<sub>fe</sub></span><span class="v" id="s_efe">—</span></div>
+      <div class="step-row"><span class="k">Strain in concrete, ε<sub>c</sub></span><span class="v" id="s_ec">—</span></div>
+      <div class="step-row"><span class="k">Strain in steel, ε<sub>s</sub></span><span class="v" id="s_es">—</span></div>
+      <div class="step-row"><span class="k">Stress in steel, f<sub>s</sub></span><span class="v" id="s_fs">—</span></div>
+      <div class="step-row"><span class="k">Effective stress in CFRP, f<sub>fe</sub></span><span class="v" id="s_ffe">—</span></div>
+      <div class="step-row"><span class="k">Equilibrium check, C vs T</span><span class="v" id="s_eq">—</span></div>
+    </div>
+
+    <div class="step-block">
+      <h3>Step 5 — nominal &amp; design flexural strength</h3>
+      <div class="step-row"><span class="k" id="s_Mns_label">Nominal moment from steel, M<sub>n,s</sub></span><span class="v" id="s_Mns">—</span></div>
+      <div class="step-row"><span class="k">Nominal moment from CFRP, M<sub>n,f</sub></span><span class="v" id="s_Mnf">—</span></div>
+      <div class="step-row"><span class="k">CFRP strength reduction, ψ<sub>f</sub></span><span class="v" id="s_psi">—</span></div>
+      <div class="step-row"><span class="k">Strength reduction factor, ϕ</span><span class="v" id="s_phi">—</span></div>
+      <div class="step-row"><span class="k">Design flexural strength, ϕM<sub>n</sub></span><span class="v" id="s_phiMn">—</span></div>
+      <div class="step-row"><span class="k">Design/capacity ratio, DCR = M<sub>u</sub> / ϕM<sub>n</sub></span><span class="v" id="s_dcr">—</span></div>
+    </div>
+
+    <div class="step-block">
+      <h3>Step 6 — service-level stress &amp; creep-rupture check</h3>
+      <div class="step-row"><span class="k">Service moment, M<sub>s</sub> = M<sub>DL</sub> + M<sub>LL</sub></span><span class="v" id="s_Ms">—</span></div>
+      <div class="step-row"><span class="k">Steel stress at service, f<sub>s,s</sub> <span class="flag gov" id="s_fssFlag" style="display:none;">LIMIT</span></span><span class="v" id="s_fss">—</span></div>
+      <div class="step-row"><span class="k">Sustained + cyclic limit, 0.80f<sub>y</sub></span><span class="v" id="s_fssLim">—</span></div>
+      <div class="step-row"><span class="k">CFRP stress at service, f<sub>f,s</sub> <span class="flag gov" id="s_ffsFlag" style="display:none;">LIMIT</span></span><span class="v" id="s_ffs">—</span></div>
+      <div class="step-row"><span class="k">Creep-rupture stress limit</span><span class="v" id="s_ffsLim">—</span></div>
+    </div>
+
+    <div class="note">
+      <strong>Method note.</strong> This tool applies the ACI 440.2R strain-compatibility procedure for flexural
+      strengthening with externally bonded FRP: internal compressive and tensile forces are iterated to equilibrium
+      at a converged neutral-axis depth c, from which ε<sub>fe</sub>, ε<sub>c</sub>, ε<sub>s</sub>, and the design
+      flexural strength ϕM<sub>n</sub> are derived. Effective depth accounts for the stirrup
+      (d = h − c<sub>c</sub> − Ø<sub>stirrup</sub> − Ø<sub>main</sub>/2), and reinforcement is entered as a discrete
+      bar count rather than a spacing-based strip, consistent with a beam section.
+      <br><br>
+      The <strong>eligibility check</strong> (ACI 440.2R §9.2) confirms the beam can carry its anticipated service
+      loads even with a complete, unanticipated loss of the FRP system: the existing (unstrengthened) capacity
+      ϕM<sub>n0</sub> is computed with the standard ACI 318 Whitney stress block, and compared against
+      1.1M<sub>DL</sub> + 0.75M<sub>LL</sub> (or +1.0M<sub>LL</sub> when the live load is sustained long-term). The
+      same strain-based ϕ transition (0.65–0.90, between ε<sub>t</sub> = f<sub>y</sub>/E<sub>s</sub> and 0.005) is
+      applied to both the existing and CFRP-strengthened sections. Existing soffit strain ε<sub>bi</sub> and the
+      service-level stress/creep-rupture checks use standard elastic cracked-section (transformed, steel-only)
+      properties.
+      <br><br>
+      Entering M<sub>u</sub> as a <strong>negative value</strong> treats it as hogging: the tension reinforcement
+      switches to the top bars for the CFRP-strengthened check, the existing-capacity/eligibility check, and the
+      effective depth, which is then measured from the soffit up to the top-bar centroid.
+      <br><br>
+      This tool is intended for preliminary design and verification. Confirm results against ACI 440.2R and a
+      licensed engineer's independent review before construction.
+    </div>
+  </div>
+
+  <footer>CFRP BEAM FLEXURAL ANALYSIS · FOR PRELIMINARY / EDUCATIONAL USE · VERIFY AGAINST ACI 440.2R AND A LICENSED ENGINEER'S REVIEW BEFORE CONSTRUCTION<br>
+  For more inquiries, visit <a href="https://web.facebook.com/retrocreteph/?_rdc=1&_rdr#" target="_blank" rel="noopener noreferrer" style="color:var(--teal); text-decoration:none;">facebook.com/retrocreteph</a>
+  </footer>
+</div>
+
+<script>
+const CE_TABLE = {
+  interior:   { carbon:0.95, glass:0.75, aramid:0.85 },
+  exterior:   { carbon:0.85, glass:0.65, aramid:0.75 },
+  aggressive: { carbon:0.85, glass:0.50, aramid:0.70 }
+};
+const CREEP_LIMIT = { carbon:0.55, glass:0.20, aramid:0.30 };
+
+// Manufacturer CFRP properties — the RETROWRAP/RETROPLATE catalog shared with
+// the other RetroCrete FC tools.
+const CFRP_PRODUCTS = {
+  'RETROWRAP - 200 GSM':        { tf:0.111, ffu:3400, efu:0.018, Ef:230000 },
+  'RETROWRAP - 300 GSM':        { tf:0.167, ffu:3400, efu:0.018, Ef:230000 },
+  'RETROWRAP - 600 GSM':        { tf:0.333, ffu:3400, efu:0.018, Ef:230000 },
+  'RETROPLATE - 200 GSM':       { tf:0.111, ffu:4900, efu:0.019, Ef:240000 },
+  'RETROPLATE - 300 GSM':       { tf:0.167, ffu:4900, efu:0.019, Ef:240000 },
+  'RETROPLATE - 600 GSM':       { tf:0.333, ffu:4900, efu:0.019, Ef:240000 }
+};
+
+function applyCfrpProduct(){
+  const key = document.getElementById('cfrpProduct').value;
+  const fieldIds = ['tf','ffu','efu','Ef'];
+  const p = CFRP_PRODUCTS[key];
+  const targets = { tf:[p.tf,3], ffu:[p.ffu,0], efu:[p.efu,4], Ef:[p.Ef,0] };
+  fieldIds.forEach(id => {
+    const el = document.getElementById(id);
+    const fromVal = parseFloat(el.value);
+    const [toVal, decimals] = targets[id];
+    el.value = toVal;
+    el.setAttribute('readonly','readonly');
+    animateInputDisplay(el, isFinite(fromVal) ? fromVal : toVal, toVal, decimals);
+  });
+  runCalc();
+}
+
+function num(id){ return parseFloat(document.getElementById(id).value); }
+function fmt(v, d=2){
+  if(!isFinite(v)) return '—';
+  return v.toLocaleString(undefined, {minimumFractionDigits:d, maximumFractionDigits:d});
+}
+
+/* ---------- smooth "Excel-like" number transitions ---------- */
+const _animState = {};
+function setAnimatedText(id, rawVal, decimals, suffix=''){
+  const el = document.getElementById(id);
+  if(!el) return;
+  if(typeof rawVal !== 'number' || !isFinite(rawVal)){
+    if(_animState[id]){ cancelAnimationFrame(_animState[id]); delete _animState[id]; }
+    el.textContent = (rawVal === null || rawVal === undefined) ? '—' : rawVal;
+    delete el.dataset.rawValue;
+    return;
+  }
+  const prevRaw = el.dataset.rawValue;
+  const prevVal = prevRaw !== undefined ? parseFloat(prevRaw) : NaN;
+  el.dataset.rawValue = rawVal;
+  if(!isFinite(prevVal) || Math.abs(prevVal - rawVal) < 1e-9){
+    el.textContent = fmt(rawVal, decimals) + suffix;
+    return;
+  }
+  if(_animState[id]) cancelAnimationFrame(_animState[id]);
+  const duration = 380, start = performance.now();
+  function step(now){
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = fmt(prevVal + (rawVal - prevVal) * eased, decimals) + suffix;
+    if (t < 1){ _animState[id] = requestAnimationFrame(step); }
+    else { el.textContent = fmt(rawVal, decimals) + suffix; delete _animState[id]; }
+  }
+  _animState[id] = requestAnimationFrame(step);
+}
+function animateInputDisplay(el, fromVal, toVal, decimals){
+  if(!el || !isFinite(fromVal) || Math.abs(fromVal - toVal) < 1e-9) return;
+  const id = el.id + '__input';
+  if(_animState[id]) cancelAnimationFrame(_animState[id]);
+  const duration = 380, start = performance.now();
+  function step(now){
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.value = (fromVal + (toVal - fromVal) * eased).toFixed(decimals);
+    if (t < 1){ _animState[id] = requestAnimationFrame(step); }
+    else { el.value = toVal; delete _animState[id]; }
+  }
+  _animState[id] = requestAnimationFrame(step);
+}
+
+// Standard ACI 318 beta1 vs f'c (stepped), shared by the existing-capacity
+// check and the strengthened section's initial estimate.
+function beta1Standard(fc){
+  if (fc >= 55) return 0.65;
+  if (fc > 28)  return 0.85 - (0.05/7)*(fc-28);
+  return 0.85; // fc in (17,28]; below 17 is out of scope for this tool
+}
+
+// Existing (unstrengthened) capacity — standard Whitney stress block, ACI 318.
+function existingCapacity(bw, d, fc, fy, Es, As){
+  const a = (As*fy)/(0.85*fc*bw);
+  const beta1 = beta1Standard(fc);
+  const c0 = a/beta1;
+  const es0 = 0.003*(d-c0)/c0;
+  const fs0 = Es*es0;
+  const eY = fy/Es;
+  let phi0 = 0.65 + 0.25*(es0 - eY)/(0.005 - eY);
+  phi0 = Math.max(0.65, Math.min(0.9, phi0));
+  const Mn0 = 0.85*fc*a*bw*(d - a/2)/1e6;
+  const phiMn0 = phi0*Mn0;
+  return {a, beta1, c0, es0, fs0, phi0, Mn0, phiMn0};
+}
+
+function solveEquilibrium(h, d, b, fc, Ec, Es, fy, As, Af, Ef, ebi, efd){
+  function state(c){
+    let strainAvail = 0.003*(h-c)/c - ebi;
+    let efe = Math.min(efd, strainAvail);
+    if (efe < 0) efe = 0;
+    let ec = (efe+ebi)*(c/(h-c));
+    let es = (efe+ebi)*((d-c)/(h-c));
+    let fs = Math.min(Es*es, fy);
+    let ffe = Ef*efe;
+    let ecPrime = 1.7*fc/Ec;
+    let beta1, alpha1;
+    if (ec <= 0.00001){ beta1=0.85; alpha1=0.85; }
+    else{
+      beta1 = (4*ecPrime - ec)/(6*ecPrime - 2*ec);
+      alpha1 = (3*ecPrime*ec - ec*ec)/(3*beta1*ecPrime*ecPrime);
+    }
+    let C = alpha1*fc*beta1*c*b;
+    let T = As*fs + Af*ffe;
+    return {c, efe, ec, es, fs, ffe, beta1, alpha1, C, T, diff:C-T};
+  }
+  let lo=0.5, hi=Math.min(h-0.5, d-0.5);
+  let sLo = state(lo), sHi = state(hi);
+  for(let i=0;i<80;i++){
+    let mid = (lo+hi)/2;
+    let sMid = state(mid);
+    if (Math.sign(sMid.diff) === Math.sign(sLo.diff)){ lo=mid; sLo=sMid; }
+    else{ hi=mid; sHi=sMid; }
+  }
+  return state((lo+hi)/2);
+}
+
+function updateModeBadge(){
+  const isNeg = num('mReq') < 0;
+  const badge = document.getElementById('modeBadge');
+  if (isNeg){
+    badge.textContent = 'NEGATIVE MOMENT · TOP BARS GOVERN';
+    badge.className = 'flag mode-neg';
+  } else {
+    badge.textContent = 'POSITIVE MOMENT · BOTTOM BARS GOVERN';
+    badge.className = 'flag mode-pos';
+  }
+  return isNeg;
+}
+
+function runCalc(){
+  const bw = num('bw'), h = num('h'), cc = num('cc'), barDia = num('barDia'), barPcs = num('barPcs'),
+        barDiaTop = num('barDiaTop'), barPcsTop = num('barPcsTop'), ccTop = num('ccTop'),
+        stirDia = num('stirDia'),
+        fc = num('fc'), fy = num('fy'), Es = num('Es'),
+        mDLraw = num('mDL'), mLLraw = num('mLL'), llSustained = document.getElementById('llSustained').value,
+        mReqRaw = num('mReq'),
+        fiber = document.getElementById('fiber').value,
+        exposure = document.getElementById('exposure').value,
+        tf = num('tf'), ffuStar = num('ffu'), efuStar = num('efu'), Ef = num('Ef'),
+        plies = num('plies');
+  let widthPly = num('widthPly');
+
+  if ([bw,h,cc,barDia,barPcs,barDiaTop,barPcsTop,ccTop,stirDia,fc,fy,Es,mDLraw,mLLraw,mReqRaw,
+       tf,ffuStar,efuStar,Ef,plies,widthPly].some(v => !isFinite(v))) return;
+
+  // ply width can never exceed the beam width
+  const widthPlyEl = document.getElementById('widthPly');
+  widthPlyEl.max = bw;
+  if (widthPly > bw){ widthPly = bw; widthPlyEl.value = bw; }
+
+  // Negative Mu = hogging: tension reinforcement switches to the top bars.
+  // Same procedure throughout, just fed from the top-bar geometry — effective
+  // depth is still "far face to tension-steel centroid", now measured from the
+  // soffit up to the top-bar centroid: d = h - cc(top) - stirrup - db(top)/2.
+  const isNeg = updateModeBadge();
+  const ccUse = isNeg ? ccTop : cc;
+  const barDiaUse = isNeg ? barDiaTop : barDia;
+  const barPcsUse = isNeg ? barPcsTop : barPcs;
+
+  // magnitudes only — sign just selects which reinforcement layer governs
+  const mDL = Math.abs(mDLraw), mLL = Math.abs(mLLraw), mReq = Math.abs(mReqRaw);
+
+  const d = h - ccUse - stirDia - barDiaUse/2;
+  const As = 0.25*Math.PI*barPcsUse*barDiaUse*barDiaUse;
+  const Ec = 4700*Math.sqrt(fc);
+  const n = Es/Ec;
+
+  document.getElementById('s_d_label').innerHTML = isNeg
+    ? 'Effective depth, d = h − c<sub>c,top</sub> − Ø<sub>stirrup</sub> − Ø<sub>main,top</sub>/2'
+    : 'Effective depth, d = h − c<sub>c</sub> − Ø<sub>stirrup</sub> − Ø<sub>main</sub>/2';
+  document.getElementById('s_As_label').innerHTML = isNeg
+    ? 'Area of top steel, A<sub>s</sub> = 0.25π·n·d<sub>b,top</sub>²'
+    : 'Area of steel, A<sub>s</sub> = 0.25π·n·d<sub>b</sub>²';
+  document.getElementById('s_Mns_label').innerHTML = isNeg
+    ? 'Nominal moment from top steel, M<sub>n,s</sub>'
+    : 'Nominal moment from steel, M<sub>n,s</sub>';
+
+  // ---- existing (unstrengthened) capacity & eligibility, using whichever
+  // reinforcement layer is currently in tension ----
+  const ex = existingCapacity(bw, d, fc, fy, Es, As);
+  const uLimit = llSustained === 'YES' ? (1.1*mDL + 1.0*mLL) : (1.1*mDL + 0.75*mLL);
+  const eligible = ex.phiMn0 > uLimit;
+
+  const eligFlag = document.getElementById('eligFlag');
+  eligFlag.textContent = eligible ? 'ELIGIBLE' : 'INELIGIBLE';
+  eligFlag.className = 'flag ' + (eligible ? 'ok' : 'fail');
+  setAnimatedText('eligPhiMn0', ex.phiMn0, 1, ' kN·m');
+  setAnimatedText('eligLimit', uLimit, 1, ' kN·m');
+  const eligFlag2 = document.getElementById('s_eligFlag2');
+  eligFlag2.textContent = eligible ? 'ELIGIBLE' : 'INELIGIBLE';
+  eligFlag2.style.background = eligible ? 'rgba(63,138,90,0.15)' : 'rgba(194,75,63,0.15)';
+  eligFlag2.style.color = eligible ? 'var(--ok)' : 'var(--danger)';
+
+  // ---- cracked-section (steel-only) elastic properties, for soffit strain & service checks ----
+  const rho = As/(bw*d);
+  const k = Math.sqrt(rho*n*rho*n + 2*rho*n) - rho*n;
+  const kd = k*d;
+  const Icr = (bw*Math.pow(kd,3))/3 + n*As*Math.pow(d-kd,2);
+
+  const M_DL_Nmm = mDL*1e6;
+  const ebi = M_DL_Nmm*(h-kd)/(Icr*Ec);
+
+  const CE = CE_TABLE[exposure][fiber];
+  const ffu = CE*ffuStar;
+  const efu = CE*efuStar;
+  const Af = plies*tf*widthPly;
+  const efdRaw = 0.41*Math.sqrt(fc/(plies*Ef*tf));
+  const debondingGoverns = efdRaw < 0.9*efu;
+  const efd = Math.min(efdRaw, 0.9*efu);
+
+  const st = solveEquilibrium(h, d, bw, fc, Ec, Es, fy, As, Af, Ef, ebi, efd);
+
+  const epsY = fy/Es;
+  let phi = 0.65 + 0.25*(st.es - epsY)/(0.005 - epsY);
+  phi = Math.max(0.65, Math.min(0.9, phi));
+  const psiF = 0.85;
+
+  const MnS = As*st.fs*(d - st.beta1*st.c/2);
+  const MnF = Af*st.ffe*(h - st.beta1*st.c/2);
+  const phiMn_Nmm = phi*(MnS + psiF*MnF);
+  const phiMn = phiMn_Nmm/1e6;
+  const dcr = mReq/phiMn;
+
+  const Ms_Nmm = (mDL+mLL)*1e6;
+  let fss = n*Ms_Nmm*(d-kd)/Icr;
+  const fssLim = 0.8*fy;
+  const fssGoverned = fss > fssLim;
+  fss = Math.min(fss, fssLim);
+
+  const nf = Ef/Ec;
+  let ffs = nf*Ms_Nmm*(h-kd)/Icr - Ef*ebi;
+  if (ffs<0) ffs = 0;
+  const ffsLim = CREEP_LIMIT[fiber]*ffu;
+  const ffsGoverned = ffs > ffsLim;
+  ffs = Math.min(ffs, ffsLim);
+
+  setAnimatedText('dcrValue', dcr, 2);
+  const dcrStatus = document.getElementById('dcrStatus');
+  const dcrBar = document.getElementById('dcrBar');
+  if (dcr <= 1){
+    dcrStatus.textContent = 'ADEQUATE';
+    dcrStatus.className = 'dcr-status ok';
+    dcrBar.style.background = 'var(--ok-deep)';
+  } else {
+    dcrStatus.textContent = 'INADEQUATE';
+    dcrStatus.className = 'dcr-status fail';
+    dcrBar.style.background = 'var(--danger-deep)';
+  }
+  dcrBar.style.width = Math.min(100, dcr*100) + '%';
+
+  setAnimatedText('outPhiMn', phiMn, 1, ' kN·m');
+  setAnimatedText('outMreq', mReq, 1, (isNeg?' kN·m (−)':' kN·m'));
+  setAnimatedText('outPhi', phi, 3);
+  setAnimatedText('outFrpShare', 100*(psiF*MnF)/(MnS+psiF*MnF), 1, '%');
+
+  setAnimatedText('s_d', d, 1, ' mm');
+  setAnimatedText('s_As', As, 1, ' mm²');
+  setAnimatedText('s_Ec', Ec, 0, ' MPa');
+  setAnimatedText('s_n', n, 3);
+  setAnimatedText('s_a0', ex.a, 1, ' mm');
+  setAnimatedText('s_c0', ex.c0, 1, ' mm');
+  setAnimatedText('s_phi0', ex.phi0, 3);
+  setAnimatedText('s_Mn0', ex.Mn0, 2, ' kN·m');
+  setAnimatedText('s_phiMn0', ex.phiMn0, 2, ' kN·m');
+  setAnimatedText('s_uLimit', uLimit, 2, ' kN·m');
+
+  setAnimatedText('s_CE', CE, 2);
+  setAnimatedText('s_ffu', ffu, 1, ' MPa');
+  setAnimatedText('s_efu', efu, 5);
+  setAnimatedText('s_Af', Af, 1, ' mm²');
+  setAnimatedText('s_efdRaw', efdRaw, 5);
+  setAnimatedText('s_efd', efd, 5);
+  const efdGovFlag = document.getElementById('s_efdGov');
+  efdGovFlag.textContent = debondingGoverns ? 'DEBONDING GOVERNS' : 'RUPTURE GOVERNS';
+  efdGovFlag.style.background = debondingGoverns ? 'rgba(216,145,47,0.15)' : 'rgba(63,138,90,0.15)';
+  efdGovFlag.style.color = debondingGoverns ? 'var(--amber)' : 'var(--ok-deep)';
+
+  setAnimatedText('s_kd', kd, 1, ' mm');
+  setAnimatedText('s_Icr', Icr, 0, ' mm\u2074');
+  setAnimatedText('s_ebi', ebi, 6);
+
+  setAnimatedText('s_c', st.c, 1, ' mm');
+  setAnimatedText('s_efe', st.efe, 5);
+  setAnimatedText('s_ec', st.ec, 5);
+  setAnimatedText('s_es', st.es, 5);
+  setAnimatedText('s_fs', st.fs, 1, ' MPa');
+  setAnimatedText('s_ffe', st.ffe, 1, ' MPa');
+  document.getElementById('s_eq').textContent = fmt(st.C/1000,1)+' kN vs '+fmt(st.T/1000,1)+' kN';
+
+  setAnimatedText('s_Mns', MnS/1e6, 2, ' kN·m');
+  setAnimatedText('s_Mnf', MnF/1e6, 2, ' kN·m');
+  setAnimatedText('s_psi', psiF, 2);
+  setAnimatedText('s_phi', phi, 3);
+  setAnimatedText('s_phiMn', phiMn, 2, ' kN·m');
+  setAnimatedText('s_dcr', dcr, 3);
+
+  setAnimatedText('s_Ms', mDL+mLL, 1, ' kN·m');
+  setAnimatedText('s_fss', fss, 1, ' MPa');
+  setAnimatedText('s_fssLim', fssLim, 1, ' MPa');
+  document.getElementById('s_fssFlag').style.display = fssGoverned ? 'inline-block' : 'none';
+  setAnimatedText('s_ffs', ffs, 1, ' MPa');
+  setAnimatedText('s_ffsLim', ffsLim, 1, ' MPa');
+  document.getElementById('s_ffsFlag').style.display = ffsGoverned ? 'inline-block' : 'none';
+
+  document.getElementById('stepsWrap').style.display = 'block';
+  drawSection(h, d, st.c, barDiaUse, barPcsUse, bw, ccUse, cc, stirDia, widthPly, plies, isNeg);
+}
+
+function drawSection(h, d, c, barDia, barPcs, bw, ccUse, ccBottom, stirDia, widthPly, plies, isNeg){
+  const svg = document.getElementById('sectionSvg');
+
+  const plyCount = Math.max(1, Math.round(plies));
+  const plyThk = 4, plyGap = 1.5;
+  const frpStackH = plyCount*plyThk + (plyCount-1)*plyGap;
+
+  const marginL = 82, marginR = 118;
+  const marginTop = 40 + (isNeg ? Math.max(0, frpStackH - 5) : 0);
+  const marginBot = 40 + (isNeg ? 0 : Math.max(0, frpStackH - 5)) + 34;
+  const maxDrawW = 400, maxDrawH = 250;
+  const scale = Math.min(maxDrawW / bw, maxDrawH / h);
+  const drawW = bw*scale, drawH = h*scale;
+  const viewW = drawW + marginL + marginR;
+  const viewH = drawH + marginTop + marginBot;
+  svg.setAttribute('viewBox', `0 0 ${viewW.toFixed(1)} ${viewH.toFixed(1)}`);
+
+  const x0 = marginL, y0 = marginTop;
+  const X = v => x0 + v*scale;
+  const Y = v => y0 + v*scale;
+
+  // main/top bars — evenly spaced across the width inside the stirrup+cover,
+  // illustrative (this is a discrete count, not a true spacing input)
+  const edge = ccUse + stirDia + barDia/2;
+  const usableW = bw - 2*edge;
+  let barXs = [];
+  if (barPcs === 1){ barXs = [bw/2]; }
+  else {
+    for (let i=0;i<barPcs;i++) barXs.push(edge + (usableW*i)/(barPcs-1));
+  }
+  // bar depth measured from the physical top of the section
+  const barDepthFromTop = isNeg ? (h - d) : d;
+  const dRebarY = Y(barDepthFromTop);
+  let barsMarkup = barXs.map(xmm =>
+    `<circle cx="${X(xmm).toFixed(1)}" cy="${dRebarY.toFixed(1)}" r="${Math.max(2.5, Math.min(6, barDia*scale/2)).toFixed(1)}" fill="#8a5a12" />`
+  ).join('');
+
+  // stirrup outline (rounded rectangle inset by the bottom-face clear cover — the
+  // stirrup itself doesn't move with the moment sign, only which bars are "main")
+  const stX = X(ccBottom), stY = Y(ccBottom), stW = (bw-2*ccBottom)*scale, stH = (h-2*ccBottom)*scale;
+  const stirrupMarkup = `<rect x="${stX.toFixed(1)}" y="${stY.toFixed(1)}" width="${stW.toFixed(1)}" height="${stH.toFixed(1)}" rx="6" fill="none" stroke="#444240" stroke-width="1.4" stroke-dasharray="3 2.5"/>`;
+
+  // FRP strip — soffit for positive Mu, top face for negative Mu
+  const frpX0 = Math.max(0, (bw - widthPly)/2);
+  const frpW = Math.min(widthPly, bw);
+  const plyShades = ['#c9102e', '#a10d25', '#7c0a1d'];
+  let frpMarkup = '';
+  for (let i=0;i<plyCount;i++){
+    const yy = isNeg ? (y0 - (i+1)*plyThk - i*plyGap) : (y0 + drawH + i*(plyThk+plyGap));
+    frpMarkup += `<rect x="${X(frpX0).toFixed(1)}" y="${yy.toFixed(1)}" width="${(frpW*scale).toFixed(1)}" height="${plyThk}" fill="${plyShades[i % plyShades.length]}"/>`;
+  }
+  const frpLabelY = isNeg ? (y0 - frpStackH - 6) : (y0 + drawH + frpStackH + 14);
+
+  // neutral axis — from the top for positive Mu, from the soffit for negative Mu
+  const cDepthFromTop = isNeg ? (h - c) : c;
+  const cY = Y(cDepthFromTop);
+  const dimBY = y0 + drawH + (isNeg ? 20 : frpStackH + 20);
+  const dimHX = x0 - 30;
+
+  // effective-depth dimension line, right side: from the compression face
+  // (top for positive Mu, soffit for negative Mu) down/up to the bar row
+  const compressionFaceY = isNeg ? (y0 + drawH) : y0;
+  const dDimX = x0 + drawW + 44;
+  const dDimMarkup = `
+    <line x1="${dDimX.toFixed(1)}" y1="${compressionFaceY.toFixed(1)}" x2="${dDimX.toFixed(1)}" y2="${dRebarY.toFixed(1)}" stroke="#6e6e6a" stroke-width="1"/>
+    <line x1="${(dDimX-3).toFixed(1)}" y1="${compressionFaceY.toFixed(1)}" x2="${(dDimX+3).toFixed(1)}" y2="${compressionFaceY.toFixed(1)}" stroke="#6e6e6a" stroke-width="1"/>
+    <line x1="${(dDimX-3).toFixed(1)}" y1="${dRebarY.toFixed(1)}" x2="${(dDimX+3).toFixed(1)}" y2="${dRebarY.toFixed(1)}" stroke="#6e6e6a" stroke-width="1"/>
+    <text x="${(dDimX+8).toFixed(1)}" y="${((compressionFaceY+dRebarY)/2).toFixed(1)}" font-size="10" fill="#242423" font-family="IBM Plex Mono, monospace" text-anchor="middle" transform="rotate(-90 ${(dDimX+8).toFixed(1)} ${((compressionFaceY+dRebarY)/2).toFixed(1)})">d = ${d.toFixed(0)} mm</text>
+  `;
+
+  const svgMarkup = `
+    <title>Beam cross-section, drawn to scale</title>
+    <desc>Cross-section of the beam drawn to scale from the width and depth inputs, showing effective depth d, neutral axis depth c, the stirrup outline, main bars, and the CFRP laminate${isNeg ? ' on the top face (negative moment)' : ' on the soffit'}.</desc>
+
+    <rect x="${x0.toFixed(1)}" y="${y0.toFixed(1)}" width="${drawW.toFixed(1)}" height="${drawH.toFixed(1)}" fill="#e9e3d0" stroke="#242423" stroke-width="1.5"/>
+    ${stirrupMarkup}
+
+    <line x1="${x0.toFixed(1)}" y1="${cY.toFixed(1)}" x2="${(x0+drawW).toFixed(1)}" y2="${cY.toFixed(1)}" stroke="#1a1a1a" stroke-width="1.3" stroke-dasharray="4 3"/>
+    <text x="${(x0+drawW+6).toFixed(1)}" y="${(cY+3).toFixed(1)}" font-size="10" fill="#1a1a1a" font-family="IBM Plex Mono, monospace">c = ${c.toFixed(0)}</text>
+
+    ${barsMarkup}
+    ${dDimMarkup}
+
+    ${frpMarkup}
+    <text x="${X(frpX0).toFixed(1)}" y="${frpLabelY.toFixed(1)}" font-size="9.5" fill="#242423" font-family="IBM Plex Mono, monospace">CFRP${isNeg?' (top face)':''}, ${plyCount} ply${plyCount>1?'s':''} · w = ${widthPly.toFixed(0)} mm</text>
+
+    <!-- height dimension, left -->
+    <line x1="${dimHX.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${dimHX.toFixed(1)}" y2="${(y0+drawH).toFixed(1)}" stroke="#6e6e6a" stroke-width="1"/>
+    <line x1="${(dimHX-3).toFixed(1)}" y1="${y0.toFixed(1)}" x2="${(dimHX+3).toFixed(1)}" y2="${y0.toFixed(1)}" stroke="#6e6e6a" stroke-width="1"/>
+    <line x1="${(dimHX-3).toFixed(1)}" y1="${(y0+drawH).toFixed(1)}" x2="${(dimHX+3).toFixed(1)}" y2="${(y0+drawH).toFixed(1)}" stroke="#6e6e6a" stroke-width="1"/>
+    <text x="${(dimHX-8).toFixed(1)}" y="${(y0+drawH/2).toFixed(1)}" font-size="10" fill="#242423" font-family="IBM Plex Mono, monospace" text-anchor="middle" transform="rotate(-90 ${(dimHX-8).toFixed(1)} ${(y0+drawH/2).toFixed(1)})">h = ${h.toFixed(0)} mm</text>
+
+    <!-- width dimension, bottom -->
+    <line x1="${x0.toFixed(1)}" y1="${dimBY.toFixed(1)}" x2="${(x0+drawW).toFixed(1)}" y2="${dimBY.toFixed(1)}" stroke="#6e6e6a" stroke-width="1"/>
+    <line x1="${x0.toFixed(1)}" y1="${(dimBY-3).toFixed(1)}" x2="${x0.toFixed(1)}" y2="${(dimBY+3).toFixed(1)}" stroke="#6e6e6a" stroke-width="1"/>
+    <line x1="${(x0+drawW).toFixed(1)}" y1="${(dimBY-3).toFixed(1)}" x2="${(x0+drawW).toFixed(1)}" y2="${(dimBY+3).toFixed(1)}" stroke="#6e6e6a" stroke-width="1"/>
+    <text x="${(x0+drawW/2).toFixed(1)}" y="${(dimBY+14).toFixed(1)}" font-size="10" fill="#242423" font-family="IBM Plex Mono, monospace" text-anchor="middle">bw = ${bw.toFixed(0)} mm</text>
+  `;
+  svg.innerHTML = svgMarkup;
+
+  document.getElementById('diagCaption').textContent = isNeg
+    ? `Cross-section, drawn to scale — negative moment: ${barPcs} top bar${barPcs>1?'s':''} in tension, CFRP on the top face.`
+    : `Cross-section, drawn to scale — ${barPcs} main bar${barPcs>1?'s':''} in tension, CFRP on the soffit.`;
+}
+
+applyCfrpProduct();
+</script>
+</body>
+</html>
